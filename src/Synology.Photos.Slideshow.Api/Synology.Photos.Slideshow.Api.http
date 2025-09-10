@@ -1,0 +1,6 @@
+@Synology.Photos.Slideshow.Api_HostAddress = http://localhost:5097
+
+GET {{Synology.Photos.Slideshow.Api_HostAddress}}/download-photos/
+Accept: application/json
+
+###
