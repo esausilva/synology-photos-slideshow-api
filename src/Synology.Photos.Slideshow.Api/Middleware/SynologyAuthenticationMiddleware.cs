@@ -97,7 +97,7 @@ public sealed class SynologyAuthenticationMiddleware
     }
 }
 
-public class SynologyAuthenticationFeature(LoginResponse loginResponse)
+public sealed class SynologyAuthenticationFeature(LoginResponse loginResponse)
 {
     public LoginResponse LoginResponse { get; } = loginResponse;
 }

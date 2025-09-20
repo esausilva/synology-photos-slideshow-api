@@ -20,9 +20,9 @@ public sealed class SynologyAuthenticationContext : ISynologyAuthenticationConte
             ? throw new InvalidOperationException("Synology authentication feature not found. Make sure the SynologyAuthenticationMiddleware is configured correctly.") 
             : feature.LoginResponse;
     }
-
-    public string GetSid()
+    
+    public string? GetSynoToken()
     {
-        return GetLoginResponse().Data.Sid;
+        return GetLoginResponse().Data.SynoToken;
     }
 }

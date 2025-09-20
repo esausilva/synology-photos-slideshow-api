@@ -5,5 +5,5 @@ namespace Synology.Photos.Slideshow.Api.Slideshow.Auth;
 public interface ISynologyAuthenticationContext
 {
     LoginResponse GetLoginResponse();
-    string GetSid();
+    string? GetSynoToken();
 }

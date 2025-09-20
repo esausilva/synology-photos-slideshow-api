@@ -1,6 +1,7 @@
 using Synology.Photos.Slideshow.Api.Configuration;
 using Synology.Photos.Slideshow.Api.Slideshow.Auth;
 using Synology.Photos.Slideshow.Api.Slideshow.Common;
+using Synology.Photos.Slideshow.Api.Slideshow.DownloadPhotos.Services;
 
 namespace Synology.Photos.Slideshow.Api.Extensions;
 
@@ -16,9 +17,17 @@ public static class ConfigurationExtensions
             .Bind(configuration.GetSection(nameof(SynologyUser)))
             .ValidateDataAnnotations()
             .ValidateOnStart();
+        
+        services
+            .AddOptions<SynoApiOptions>()
+            .Bind(configuration.GetSection(nameof(SynoApiOptions)))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
 
         services.AddHttpContextAccessor();
+        
         services.AddScoped<ISynologyAuthenticationContext, SynologyAuthenticationContext>();
+        services.AddScoped<ISynologyApiSearch, SynologyApiSearch>();
         services.AddSingleton<ISynologyApiInfo, SynologyApiInfo>();
   
         return services;

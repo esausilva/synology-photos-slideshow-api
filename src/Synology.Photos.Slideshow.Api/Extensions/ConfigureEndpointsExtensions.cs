@@ -8,6 +8,6 @@ public static class ConfigureEndpointsExtensions
     {
         app.MapGet("download-photos", DownloadPhotos.GetAsync)
             .WithName("DownloadPhotos")
-            .Produces<WeatherForecast[]>();
+            .Produces<IList<string>>();
     }
 }
