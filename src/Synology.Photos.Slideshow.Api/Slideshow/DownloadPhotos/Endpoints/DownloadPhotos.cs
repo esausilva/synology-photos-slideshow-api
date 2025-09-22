@@ -9,8 +9,12 @@ public static class DownloadPhotos
         ISynologyApiSearch synoApiSearch,
         CancellationToken cancellationToken)
     {
-        var photoPaths = await synoApiSearch.GetPhotos(cancellationToken);
-        
-        return Results.Ok(photoPaths);
+        var photoPathsResult = await synoApiSearch.GetPhotos(cancellationToken);
+
+        return photoPathsResult.Match(
+            photoPaths => Results.Ok(photoPaths),
+            invalidApiVersionError => Results.BadRequest(invalidApiVersionError.Message),
+            searchError => Results.BadRequest(searchError.Message),
+            timeOutError => Results.BadRequest(timeOutError.Message));
     }
 }

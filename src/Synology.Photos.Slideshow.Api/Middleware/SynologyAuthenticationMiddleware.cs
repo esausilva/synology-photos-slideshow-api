@@ -46,7 +46,7 @@ public sealed class SynologyAuthenticationMiddleware
         }
         finally
         {
-            // Always attempt to logout when the request is complete
+            // Always attempt to log out when the request is complete
             if (context.Features.Get<SynologyAuthenticationFeature>() is { } authFeature)
             {
                 await LogoutAsync(authFeature.LoginResponse, context.RequestAborted);
@@ -67,7 +67,12 @@ public sealed class SynologyAuthenticationMiddleware
             var loginUrl = _synoApiRequestBuilder.BuildUrl(loginRequest);
         
             _logger.LogDebug("Authenticating with Synology API");
-            return await _synoApiService.GetAsync<LoginResponse>(loginUrl, cancellationToken);
+            
+            var loginResponse = await _synoApiService.GetAsync<LoginResponse>(loginUrl, cancellationToken);
+            
+            return string.IsNullOrWhiteSpace(loginResponse.Data.SynoToken) 
+                ? throw new SynologyAuthenticationException("SynoToken is null or empty") 
+                : loginResponse;
         }
         catch (Exception e)
         {
@@ -101,3 +106,5 @@ public sealed class SynologyAuthenticationFeature(LoginResponse loginResponse)
 {
     public LoginResponse LoginResponse { get; } = loginResponse;
 }
+
+public sealed class SynologyAuthenticationException(string message) : Exception(message);
