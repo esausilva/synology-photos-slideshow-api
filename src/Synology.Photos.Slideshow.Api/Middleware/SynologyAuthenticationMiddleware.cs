@@ -38,10 +38,10 @@ public sealed class SynologyAuthenticationMiddleware
         try
         {
             var loginResponse = await AuthenticateAsync(context.RequestAborted);
-            
+
             // Store login response in a custom feature class for later use
             context.Features.Set(new SynologyAuthenticationFeature(loginResponse));
-            
+
             await _next(context);
         }
         finally

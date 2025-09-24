@@ -4,4 +4,5 @@ public record SynoApiOptions
 {
     public IReadOnlyList<string> FileStationSearchFolders { get; init; } = [];
     public int NumberOfPhotoDownloads { get; init; }
+    public string DownloadAbsolutePath { get; init; } = "";
 }

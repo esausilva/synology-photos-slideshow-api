@@ -2,6 +2,7 @@ using Serilog;
 using Synology.Api.Sdk.Config;
 using Synology.Photos.Slideshow.Api.DI;
 using Synology.Photos.Slideshow.Api.Extensions;
+using Synology.Photos.Slideshow.Api.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +19,8 @@ services
     .ConfigureServices(configuration)
     .AddSerilog(serilog)
     .AddOpenApi()
+    .AddExceptionHandler<GlobalExceptionHandlerMiddleware>()
+    .AddProblemDetails()
     .ConfigureSynologyApiSdkDependencies(configuration);
 
 var app = builder.Build();
@@ -28,6 +31,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseExceptionHandler();
 app.UseSynologyAuthentication();
 app.ConfigureEndpoints();
 app.Run();

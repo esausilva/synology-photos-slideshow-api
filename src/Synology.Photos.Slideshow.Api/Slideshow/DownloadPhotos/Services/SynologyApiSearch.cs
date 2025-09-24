@@ -31,24 +31,29 @@ public sealed class SynologyApiSearch : ISynologyApiSearch
         ISynologyApiService apiService, 
         ISynologyApiRequestBuilder requestBuilder,
         ISynologyAuthenticationContext authContext,
-        IOptionsMonitor<SynoApiOptions> optionsMonitor, ILogger<SynologyApiSearch> logger)
+        IOptionsMonitor<SynoApiOptions> optionsMonitor, 
+        ILogger<SynologyApiSearch> logger)
     {
         _apiInfo = apiInfo ?? throw new ArgumentNullException(nameof(apiInfo));
         _apiService = apiService ?? throw new ArgumentNullException(nameof(apiService));
         _requestBuilder = requestBuilder ?? throw new ArgumentNullException(nameof(requestBuilder));
         _authContext = authContext ?? throw new ArgumentNullException(nameof(authContext));
         _optionsMonitor = optionsMonitor ?? throw new ArgumentNullException(nameof(optionsMonitor));
-        _logger = logger;
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
-    
+
     /// <summary>
-    /// Searches for and retrieves a collection of random photo paths from the Synology NAS.
+    /// Retrieves a collection of photos or an error result if the operation fails.
     /// </summary>
-    /// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
-    /// <returns>A collection of photo paths.</returns>
-    /// <exception cref="ArgumentException">Thrown when API parameters are invalid.</exception>
-    /// <exception cref="InvalidOperationException">Thrown when the API doesn't return expected data.</exception>
-    public async Task<OneOf<IEnumerable<string>, InvalidApiVersionError, FailedToInitiateSearchError, SearchTimedOutError>> 
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>
+    /// A <see cref="OneOf{T0, T1, T2, T3}"/> representing either:
+    /// - A collection of <see cref="FileStationItem"/>,
+    /// - An <see cref="InvalidApiVersionError"/> if the API version is invalid,
+    /// - A <see cref="FailedToInitiateSearchError"/> if the search initiation fails,
+    /// - A <see cref="SearchTimedOutError"/> if the search operation times out.
+    /// </returns>
+    public async Task<OneOf<IEnumerable<FileStationItem>, InvalidApiVersionError, FailedToInitiateSearchError, SearchTimedOutError>> 
         GetPhotos(CancellationToken cancellationToken)
     {
         var apiVersionResults = await GetApiVersion(cancellationToken);
@@ -63,11 +68,11 @@ public sealed class SynologyApiSearch : ISynologyApiSearch
         if (photoCountResult.TryPickT1(out var countError, out var photosCount))
             return countError;
             
-        var photoPaths = await GetRandomPhotoPaths(taskId, apiVersion, photosCount, cancellationToken);
+        var fileStationItems = await GetRandomFileStationItems(taskId, apiVersion, photosCount, cancellationToken);
         
         await CleanupSearch(taskId, apiVersion, cancellationToken);
 
-        return photoPaths.ToList();
+        return fileStationItems.ToList();
     }
 
     /// <summary>
@@ -153,7 +158,7 @@ public sealed class SynologyApiSearch : ISynologyApiSearch
     /// <summary>
     /// Retrieves a collection of random photo paths.
     /// </summary>
-    private async Task<IList<string>> GetRandomPhotoPaths(
+    private async Task<IList<FileStationItem>> GetRandomFileStationItems(
         string taskId, 
         int apiVersion, 
         int totalPhotosCount, 
@@ -162,25 +167,27 @@ public sealed class SynologyApiSearch : ISynologyApiSearch
         if (totalPhotosCount <= 0)
         {
             _logger.LogWarning("No photos were found in the search results");
-            return new List<string>();
+            return new List<FileStationItem>();
         }
         
-        var photoPaths = new List<string>();
+        var fileStationItems = new List<FileStationItem>();
         var photoDownloadCount = _optionsMonitor.CurrentValue.NumberOfPhotoDownloads;
         
         for (var i = 0; i < photoDownloadCount; i++)
         {
-            var photoPath = await GetRandomPhotoPath(taskId, apiVersion, totalPhotosCount, cancellationToken);
-            photoPaths.Add(photoPath);
+            var fileStationItem = await GetRandomFileStationItem(taskId, apiVersion, totalPhotosCount, cancellationToken);
+            
+            if (!string.IsNullOrWhiteSpace(fileStationItem.Path))
+                fileStationItems.Add(fileStationItem);
         }
         
-        return photoPaths;
+        return fileStationItems;
     }
     
     /// <summary>
-    /// Retrieves a single random photo path.
+    /// Retrieves a single random FileStationItem, which includes the path to the photo.
     /// </summary>
-    private async Task<string> GetRandomPhotoPath(
+    private async Task<FileStationItem> GetRandomFileStationItem(
         string taskId, 
         int apiVersion, 
         int totalPhotosCount, 
@@ -194,11 +201,10 @@ public sealed class SynologyApiSearch : ISynologyApiSearch
         var searchListResponse = await _apiService.GetAsync<FileStationSearchListResponse>(searchUrl, cancellationToken);
 
         if (searchListResponse?.Data?.Files is not null && searchListResponse.Data.Files.Count != 0)
-            return searchListResponse.Data.Files[0].Path;
+            return searchListResponse.Data.Files[0];
         
         _logger.LogWarning("No photos were found in the search results");
-        return string.Empty;
-
+        return new FileStationItem();
     }
 
     /// <summary>
@@ -234,8 +240,3 @@ public sealed class SynologyApiSearch : ISynologyApiSearch
         _logger.LogDebug("Cleaned up search task");
     }
 }
-
-
-
-
-

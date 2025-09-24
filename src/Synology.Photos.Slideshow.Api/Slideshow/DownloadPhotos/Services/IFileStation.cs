@@ -4,7 +4,7 @@ using Synology.Photos.Slideshow.Api.Slideshow.Common.Errors;
 
 namespace Synology.Photos.Slideshow.Api.Slideshow.DownloadPhotos.Services;
 
-public interface ISynologyApiSearch
+public interface IFileStation
 {
-    Task<OneOf<IEnumerable<FileStationItem>, InvalidApiVersionError, FailedToInitiateSearchError, SearchTimedOutError>> GetPhotos(CancellationToken cancellationToken);
+    Task Download(IList<FileStationItem> fileStationItems, CancellationToken cancellationToken);
 }
