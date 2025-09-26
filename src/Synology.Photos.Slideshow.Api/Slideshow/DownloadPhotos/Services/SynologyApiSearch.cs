@@ -25,6 +25,7 @@ public sealed class SynologyApiSearch : ISynologyApiSearch
     
     private const int SingleItemLimit = 1;
     private const int SearchPollingDelayMs = 3_000;
+    private const string VideoFileExtension = ".mp4";
 
     public SynologyApiSearch(
         ISynologyApiInfo apiInfo, 
@@ -173,15 +174,72 @@ public sealed class SynologyApiSearch : ISynologyApiSearch
         var fileStationItems = new List<FileStationItem>();
         var photoDownloadCount = _optionsMonitor.CurrentValue.NumberOfPhotoDownloads;
         
-        for (var i = 0; i < photoDownloadCount; i++)
-        {
-            var fileStationItem = await GetRandomFileStationItem(taskId, apiVersion, totalPhotosCount, cancellationToken);
-            
-            if (!string.IsNullOrWhiteSpace(fileStationItem.Path))
-                fileStationItems.Add(fileStationItem);
-        }
+        await GetFileStationItemsRecursively(
+            taskId, 
+            apiVersion, 
+            totalPhotosCount, 
+            photoDownloadCount, 
+            fileStationItems, 
+            cancellationToken);
         
         return fileStationItems;
+    }
+    
+    /// <summary>
+    /// Recursively retrieves file station items, replacing any video files with new items.
+    /// </summary>
+    private async Task GetFileStationItemsRecursively(
+        string taskId,
+        int apiVersion,
+        int totalPhotosCount,
+        int remainingCount,
+        List<FileStationItem> fileStationItems,
+        CancellationToken cancellationToken)
+    {
+        // Base case: we have collected enough items
+        if (remainingCount <= 0)
+            return;
+    
+        var fileStationItem = await GetRandomFileStationItem(taskId, apiVersion, totalPhotosCount, cancellationToken);
+    
+        // Skip video files and get a replacement
+        if (!string.IsNullOrWhiteSpace(fileStationItem.Path) && 
+            fileStationItem.Path.Contains(VideoFileExtension, StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogDebug("Skipping video file: {Path}", fileStationItem.Path);
+            await GetFileStationItemsRecursively(
+                taskId, 
+                apiVersion, 
+                totalPhotosCount, 
+                remainingCount, 
+                fileStationItems, 
+                cancellationToken);
+            return;
+        }
+    
+        // Add the item if it has a valid path
+        if (!string.IsNullOrWhiteSpace(fileStationItem.Path))
+        {
+            fileStationItems.Add(fileStationItem);
+            await GetFileStationItemsRecursively(
+                taskId, 
+                apiVersion, 
+                totalPhotosCount, 
+                remainingCount - 1, 
+                fileStationItems, 
+                cancellationToken);
+        }
+        else
+        {
+            // If we got an item with an empty path, try again
+            await GetFileStationItemsRecursively(
+                taskId, 
+                apiVersion, 
+                totalPhotosCount, 
+                remainingCount, 
+                fileStationItems, 
+                cancellationToken);
+        }
     }
     
     /// <summary>
