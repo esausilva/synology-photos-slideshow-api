@@ -57,23 +57,43 @@ public sealed class SynologyApiSearch : ISynologyApiSearch
     public async Task<OneOf<IEnumerable<FileStationItem>, InvalidApiVersionError, FailedToInitiateSearchError, SearchTimedOutError>> 
         GetPhotos(CancellationToken cancellationToken)
     {
-        var apiVersionResults = await GetApiVersion(cancellationToken);
-        if (apiVersionResults.TryPickT1(out var apiVersionError, out var apiVersion))
-            return apiVersionError;
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+        var combinedToken = linkedCts.Token;
 
-        var searchResult = await InitiateSearch(apiVersion, cancellationToken);
-        if (searchResult.TryPickT1(out var searchError, out var taskId))
-            return searchError;
-
-        var photoCountResult = await GetTotalPhotosCount(taskId, apiVersion, cancellationToken);
-        if (photoCountResult.TryPickT1(out var countError, out var photosCount))
-            return countError;
-            
-        var fileStationItems = await GetRandomFileStationItems(taskId, apiVersion, photosCount, cancellationToken);
+        var taskId = string.Empty;
+        var apiVersion = 2;
         
-        await CleanupSearch(taskId, apiVersion, cancellationToken);
+        try
+        {
+            var apiVersionResults = await GetApiVersion(combinedToken);
+            if (apiVersionResults.TryPickT1(out var apiVersionError, out apiVersion))
+                return apiVersionError;
 
-        return fileStationItems.ToList();
+            var searchResult = await InitiateSearch(apiVersion, combinedToken);
+            if (searchResult.TryPickT1(out var searchError, out taskId))
+                return searchError;
+
+            var photoCountResult = await GetTotalPhotosCount(taskId, apiVersion, combinedToken);
+            if (photoCountResult.TryPickT1(out var countError, out var photosCount))
+            {
+                await CleanupSearch(taskId, apiVersion, CancellationToken.None);
+                return countError;
+            }
+
+            var fileStationItems = await GetRandomFileStationItems(taskId, apiVersion, photosCount, combinedToken);
+
+            await CleanupSearch(taskId, apiVersion, CancellationToken.None);
+
+            return fileStationItems.ToList();
+        }
+        catch (OperationCanceledException)
+        {
+            if (!string.IsNullOrWhiteSpace(taskId))
+                await CleanupSearch(taskId, apiVersion, CancellationToken.None);
+            
+            throw;
+        }
     }
 
     /// <summary>
@@ -149,8 +169,8 @@ public sealed class SynologyApiSearch : ISynologyApiSearch
             return new SearchTimedOutError(maxRetryAttempts);
         }
 
-        if (searchListResponse?.Data?.Total is not null)
-            return searchListResponse.Data.Total;
+        if (searchListResponse?.Data?.Total is not null and var total)
+            return total.Value;
 
         _logger.LogWarning("Failed to get total photo count");
         return 0;
@@ -170,76 +190,26 @@ public sealed class SynologyApiSearch : ISynologyApiSearch
             _logger.LogWarning("No photos were found in the search results");
             return new List<FileStationItem>();
         }
-        
+    
         var fileStationItems = new List<FileStationItem>();
         var photoDownloadCount = _optionsMonitor.CurrentValue.NumberOfPhotoDownloads;
+    
+        while (fileStationItems.Count < photoDownloadCount)
+        {
+            var fileStationItem = await GetRandomFileStationItem(taskId, apiVersion, totalPhotosCount, cancellationToken);
         
-        await GetFileStationItemsRecursively(
-            taskId, 
-            apiVersion, 
-            totalPhotosCount, 
-            photoDownloadCount, 
-            fileStationItems, 
-            cancellationToken);
+            if (!string.IsNullOrWhiteSpace(fileStationItem.Path) && 
+                fileStationItem.Path.Contains(VideoFileExtension, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogDebug("Skipping video file: {Path}", fileStationItem.Path);
+                continue;
+            }
         
+            if (!string.IsNullOrWhiteSpace(fileStationItem.Path))
+                fileStationItems.Add(fileStationItem);
+        }
+    
         return fileStationItems;
-    }
-    
-    /// <summary>
-    /// Recursively retrieves file station items, replacing any video files with new items.
-    /// </summary>
-    private async Task GetFileStationItemsRecursively(
-        string taskId,
-        int apiVersion,
-        int totalPhotosCount,
-        int remainingCount,
-        List<FileStationItem> fileStationItems,
-        CancellationToken cancellationToken)
-    {
-        // Base case: we have collected enough items
-        if (remainingCount <= 0)
-            return;
-    
-        var fileStationItem = await GetRandomFileStationItem(taskId, apiVersion, totalPhotosCount, cancellationToken);
-    
-        // Skip video files and get a replacement
-        if (!string.IsNullOrWhiteSpace(fileStationItem.Path) && 
-            fileStationItem.Path.Contains(VideoFileExtension, StringComparison.OrdinalIgnoreCase))
-        {
-            _logger.LogDebug("Skipping video file: {Path}", fileStationItem.Path);
-            await GetFileStationItemsRecursively(
-                taskId, 
-                apiVersion, 
-                totalPhotosCount, 
-                remainingCount, 
-                fileStationItems, 
-                cancellationToken);
-            return;
-        }
-    
-        // Add the item if it has a valid path
-        if (!string.IsNullOrWhiteSpace(fileStationItem.Path))
-        {
-            fileStationItems.Add(fileStationItem);
-            await GetFileStationItemsRecursively(
-                taskId, 
-                apiVersion, 
-                totalPhotosCount, 
-                remainingCount - 1, 
-                fileStationItems, 
-                cancellationToken);
-        }
-        else
-        {
-            // If we got an item with an empty path, try again
-            await GetFileStationItemsRecursively(
-                taskId, 
-                apiVersion, 
-                totalPhotosCount, 
-                remainingCount, 
-                fileStationItems, 
-                cancellationToken);
-        }
     }
     
     /// <summary>
@@ -258,8 +228,8 @@ public sealed class SynologyApiSearch : ISynologyApiSearch
         var searchUrl = _requestBuilder.BuildUrl(listRequest);
         var searchListResponse = await _apiService.GetAsync<FileStationSearchListResponse>(searchUrl, cancellationToken);
 
-        if (searchListResponse?.Data?.Files is not null && searchListResponse.Data.Files.Count != 0)
-            return searchListResponse.Data.Files[0];
+        if (searchListResponse?.Data?.Files is [var firstFile, ..])
+            return firstFile;
         
         _logger.LogWarning("No photos were found in the search results");
         return new FileStationItem();
