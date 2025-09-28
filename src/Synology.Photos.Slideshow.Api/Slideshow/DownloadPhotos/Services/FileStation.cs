@@ -21,7 +21,7 @@ public sealed class FileStation : IFileStation
     private readonly ISynologyApiService _apiService;
     private readonly ISynologyApiRequestBuilder _requestBuilder;
     private readonly ISynologyAuthenticationContext _authContext;
-    private readonly IOptionsMonitor<SynoApiOptions> _optionsMonitor;
+    private readonly IOptionsMonitor<SynoApiOptions> _synoApiOptions;
     private readonly IFileProcessing _fileProcessing;
     private readonly ILogger<FileStation> _logger;
 
@@ -30,7 +30,7 @@ public sealed class FileStation : IFileStation
         ISynologyApiService apiService, 
         ISynologyApiRequestBuilder requestBuilder,
         ISynologyAuthenticationContext authContext,
-        IOptionsMonitor<SynoApiOptions> optionsMonitor,
+        IOptionsMonitor<SynoApiOptions> synoApiOptions,
         IFileProcessing fileProcessing,
         ILogger<FileStation> logger)
     {
@@ -38,7 +38,7 @@ public sealed class FileStation : IFileStation
         _apiService = apiService ?? throw new ArgumentNullException(nameof(apiService));
         _requestBuilder = requestBuilder ?? throw new ArgumentNullException(nameof(requestBuilder));
         _authContext = authContext ?? throw new ArgumentNullException(nameof(authContext));
-        _optionsMonitor = optionsMonitor ?? throw new ArgumentNullException(nameof(optionsMonitor));
+        _synoApiOptions = synoApiOptions ?? throw new ArgumentNullException(nameof(synoApiOptions));
         _fileProcessing = fileProcessing ?? throw new ArgumentNullException(nameof(fileProcessing));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -63,7 +63,7 @@ public sealed class FileStation : IFileStation
         var downloadResponse = await _apiService.GetRawResponseAsync(downloadUrl, cancellationToken);
 
         await DownloadHelpers.DownloadImageOrZipFromFileStationApi(
-            _optionsMonitor.CurrentValue.DownloadAbsolutePath, 
+            _synoApiOptions.CurrentValue.DownloadAbsolutePath, 
             fileStationItems.ToList(),
             downloadResponse.HttpResponse);
         
