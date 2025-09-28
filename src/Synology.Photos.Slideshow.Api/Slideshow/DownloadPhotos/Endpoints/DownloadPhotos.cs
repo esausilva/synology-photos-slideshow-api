@@ -8,14 +8,17 @@ public static class DownloadPhotos
         HttpContext context,
         ISynologyApiSearch synoApiSearch,
         IFileStation fileStation,
+        IFileProcessing fileProcessing,
         CancellationToken cancellationToken)
     {
-        var photoPathsResult = await synoApiSearch.GetPhotos(cancellationToken);
+        var fileStationItemsResult = await synoApiSearch.GetPhotos(cancellationToken);
 
-        if(photoPathsResult.TryPickT0(out var fileStationItems, out _))
-            await fileStation.Download(fileStationItems.ToList(), cancellationToken);
+        if(fileStationItemsResult.TryPickT0(out var fileStationItems, out _))
+            await fileStation.Download(fileStationItems, cancellationToken);
         
-        return photoPathsResult.Match(
+        await fileProcessing.ProcessZipFile(cancellationToken);
+        
+        return fileStationItemsResult.Match(
             // TODO: Return NoContent when finalized, but returning Photo Paths for now 
             items => Results.Ok(items.Select(p => p.Path).ToList()),
             

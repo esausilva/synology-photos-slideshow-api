@@ -6,5 +6,5 @@ namespace Synology.Photos.Slideshow.Api.Slideshow.DownloadPhotos.Services;
 
 public interface ISynologyApiSearch
 {
-    Task<OneOf<IEnumerable<FileStationItem>, InvalidApiVersionError, FailedToInitiateSearchError, SearchTimedOutError>> GetPhotos(CancellationToken cancellationToken);
+    Task<OneOf<IList<FileStationItem>, InvalidApiVersionError, FailedToInitiateSearchError, SearchTimedOutError>> GetPhotos(CancellationToken cancellationToken);
 }

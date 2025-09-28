@@ -20,26 +20,27 @@ public sealed class SynologyApiSearch : ISynologyApiSearch
     private readonly ISynologyApiService _apiService;
     private readonly ISynologyApiRequestBuilder _requestBuilder;
     private readonly ISynologyAuthenticationContext _authContext;
-    private readonly IOptionsMonitor<SynoApiOptions> _optionsMonitor;
+    private readonly IOptionsMonitor<SynoApiOptions> _synoApiOptions;
     private readonly ILogger<SynologyApiSearch> _logger;
-    
+
+    private static readonly IList<string> VideoFileExtensions = [".mp4", ".mov", ".avi", ".mkv", ".wmv"];
+
     private const int SingleItemLimit = 1;
     private const int SearchPollingDelayMs = 3_000;
-    private const string VideoFileExtension = ".mp4";
 
     public SynologyApiSearch(
         ISynologyApiInfo apiInfo, 
         ISynologyApiService apiService, 
         ISynologyApiRequestBuilder requestBuilder,
         ISynologyAuthenticationContext authContext,
-        IOptionsMonitor<SynoApiOptions> optionsMonitor, 
+        IOptionsMonitor<SynoApiOptions> synoApiOptions, 
         ILogger<SynologyApiSearch> logger)
     {
         _apiInfo = apiInfo ?? throw new ArgumentNullException(nameof(apiInfo));
         _apiService = apiService ?? throw new ArgumentNullException(nameof(apiService));
         _requestBuilder = requestBuilder ?? throw new ArgumentNullException(nameof(requestBuilder));
         _authContext = authContext ?? throw new ArgumentNullException(nameof(authContext));
-        _optionsMonitor = optionsMonitor ?? throw new ArgumentNullException(nameof(optionsMonitor));
+        _synoApiOptions = synoApiOptions ?? throw new ArgumentNullException(nameof(synoApiOptions));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -54,7 +55,7 @@ public sealed class SynologyApiSearch : ISynologyApiSearch
     /// - A <see cref="FailedToInitiateSearchError"/> if the search initiation fails,
     /// - A <see cref="SearchTimedOutError"/> if the search operation times out.
     /// </returns>
-    public async Task<OneOf<IEnumerable<FileStationItem>, InvalidApiVersionError, FailedToInitiateSearchError, SearchTimedOutError>> 
+    public async Task<OneOf<IList<FileStationItem>, InvalidApiVersionError, FailedToInitiateSearchError, SearchTimedOutError>> 
         GetPhotos(CancellationToken cancellationToken)
     {
         using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
@@ -137,7 +138,7 @@ public sealed class SynologyApiSearch : ISynologyApiSearch
             method: SynologyApiMethods.FileStation.Search_Start,
             synoToken: _authContext.GetSynoToken()!,
             fileType: "file",
-            folderPaths: _optionsMonitor.CurrentValue.FileStationSearchFolders
+            folderPaths: _synoApiOptions.CurrentValue.FileStationSearchFolders
         );
     }
 
@@ -192,14 +193,14 @@ public sealed class SynologyApiSearch : ISynologyApiSearch
         }
     
         var fileStationItems = new List<FileStationItem>();
-        var photoDownloadCount = _optionsMonitor.CurrentValue.NumberOfPhotoDownloads;
+        var photoDownloadCount = _synoApiOptions.CurrentValue.NumberOfPhotoDownloads;
     
         while (fileStationItems.Count < photoDownloadCount)
         {
             var fileStationItem = await GetRandomFileStationItem(taskId, apiVersion, totalPhotosCount, cancellationToken);
         
             if (!string.IsNullOrWhiteSpace(fileStationItem.Path) && 
-                fileStationItem.Path.Contains(VideoFileExtension, StringComparison.OrdinalIgnoreCase))
+                VideoFileExtensions.Any(ext => fileStationItem.Path.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
             {
                 _logger.LogDebug("Skipping video file: {Path}", fileStationItem.Path);
                 continue;

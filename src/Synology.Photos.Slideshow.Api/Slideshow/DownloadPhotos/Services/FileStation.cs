@@ -22,6 +22,7 @@ public sealed class FileStation : IFileStation
     private readonly ISynologyApiRequestBuilder _requestBuilder;
     private readonly ISynologyAuthenticationContext _authContext;
     private readonly IOptionsMonitor<SynoApiOptions> _optionsMonitor;
+    private readonly IFileProcessing _fileProcessing;
     private readonly ILogger<FileStation> _logger;
 
     public FileStation(
@@ -29,7 +30,8 @@ public sealed class FileStation : IFileStation
         ISynologyApiService apiService, 
         ISynologyApiRequestBuilder requestBuilder,
         ISynologyAuthenticationContext authContext,
-        IOptionsMonitor<SynoApiOptions> optionsMonitor, 
+        IOptionsMonitor<SynoApiOptions> optionsMonitor,
+        IFileProcessing fileProcessing,
         ILogger<FileStation> logger)
     {
         _apiInfo = apiInfo ?? throw new ArgumentNullException(nameof(apiInfo));
@@ -37,6 +39,7 @@ public sealed class FileStation : IFileStation
         _requestBuilder = requestBuilder ?? throw new ArgumentNullException(nameof(requestBuilder));
         _authContext = authContext ?? throw new ArgumentNullException(nameof(authContext));
         _optionsMonitor = optionsMonitor ?? throw new ArgumentNullException(nameof(optionsMonitor));
+        _fileProcessing = fileProcessing ?? throw new ArgumentNullException(nameof(fileProcessing));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -48,6 +51,8 @@ public sealed class FileStation : IFileStation
     /// <returns>A task that represents the asynchronous download operation.</returns>
     public async Task Download(IList<FileStationItem> fileStationItems, CancellationToken cancellationToken)
     {
+        await _fileProcessing.CleanDownloadDirectory(cancellationToken);
+        
         var downloadRequest = new FileStationDownloadRequest(
             version: await GetApiVersion(cancellationToken),
             method: SynologyApiMethods.FileStation.Download_Download,

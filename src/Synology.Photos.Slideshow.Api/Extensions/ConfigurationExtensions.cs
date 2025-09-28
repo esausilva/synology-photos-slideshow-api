@@ -28,8 +28,9 @@ public static class ConfigurationExtensions
         
         services.AddScoped<ISynologyAuthenticationContext, SynologyAuthenticationContext>();
         services.AddSingleton<ISynologyApiInfo, SynologyApiInfo>();
-        services.AddScoped<IFileStation, FileStation>();
         services.AddScoped<ISynologyApiSearch, SynologyApiSearch>();
+        services.AddScoped<IFileStation, FileStation>();
+        services.AddScoped<IFileProcessing, FileProcessing>();
   
         return services;
     }
