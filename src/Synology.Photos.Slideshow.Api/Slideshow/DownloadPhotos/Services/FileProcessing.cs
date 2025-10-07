@@ -43,7 +43,6 @@ public sealed class FileProcessing : IFileProcessing
             
             _logger.LogInformation("Directory {RootPath} cleaned", rootPath);
         }, cancellationToken);
-        
     }
 
     public async Task ProcessZipFile(CancellationToken cancellationToken)

@@ -35,23 +35,30 @@ public sealed class SynologyAuthenticationMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
-        try
+        var path = context.Request.Path;
+        
+        if (path is { Value: "/download-photos" })
         {
-            var loginResponse = await AuthenticateAsync(context.RequestAborted);
-
-            // Store login response in a custom feature class for later use
-            context.Features.Set(new SynologyAuthenticationFeature(loginResponse));
-
-            await _next(context);
-        }
-        finally
-        {
-            // Always attempt to log out when the request is complete
-            if (context.Features.Get<SynologyAuthenticationFeature>() is { } authFeature)
+            try
             {
-                await LogoutAsync(authFeature.LoginResponse, context.RequestAborted);
+                var loginResponse = await AuthenticateAsync(context.RequestAborted);
+
+                // Store login response in a custom feature class for later use
+                context.Features.Set(new SynologyAuthenticationFeature(loginResponse));
+
+                await _next(context);
+            }
+            finally
+            {
+                // Always attempt to log out when the request is complete
+                if (context.Features.Get<SynologyAuthenticationFeature>() is { } authFeature)
+                {
+                    await LogoutAsync(authFeature.LoginResponse, context.RequestAborted);
+                }
             }
         }
+        
+        await _next(context);
     }
 
     private async Task<LoginResponse> AuthenticateAsync(CancellationToken cancellationToken)

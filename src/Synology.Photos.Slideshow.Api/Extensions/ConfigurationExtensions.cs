@@ -2,6 +2,7 @@ using Synology.Photos.Slideshow.Api.Configuration;
 using Synology.Photos.Slideshow.Api.Slideshow.Auth;
 using Synology.Photos.Slideshow.Api.Slideshow.Common;
 using Synology.Photos.Slideshow.Api.Slideshow.DownloadPhotos.Services;
+using Synology.Photos.Slideshow.Api.Slideshow.Web.Services;
 
 namespace Synology.Photos.Slideshow.Api.Extensions;
 
@@ -31,6 +32,7 @@ public static class ConfigurationExtensions
         services.AddScoped<ISynologyApiSearch, SynologyApiSearch>();
         services.AddScoped<IFileStation, FileStation>();
         services.AddScoped<IFileProcessing, FileProcessing>();
+        services.AddScoped<IPhotosService, PhotosService>();
   
         return services;
     }
