@@ -1,0 +1,22 @@
+﻿services:
+  synology.photos.slideshow.api:
+    image: esausilva/synology.photos.slideshow.api:latest
+    container_name: Synology.Photos.Slideshow.Api
+    build:
+      context: .
+      dockerfile: src/Synology.Photos.Slideshow.Api/Dockerfile
+      platforms:
+        - "linux/amd64"
+        - "linux/arm64"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Release
+      - ASPNETCORE_URLS=http://+:5097
+      - ASPNETCORE_HTTP_PORTS=5097
+#      - ASPNETCORE_URLS=http://+:5097;https://+:7078
+#      - ASPNETCORE_HTTPS_PORTS=7078
+      - DOTNET_GENERATE_ASPNET_CERTIFICATE=false
+      - SynoApiOptions:DownloadAbsolutePath=/app/slides
+      - SynoApiOptions:NumberOfPhotoDownloads=79
+    ports:
+      - "5097:5097"
+      - "7078:7078"

@@ -14,16 +14,14 @@ public static class ConfigurationExtensions
     )
     {
         services
-            .AddOptions<SynologyUser>()
-            .Bind(configuration.GetSection(nameof(SynologyUser)))
+            .AddOptionsWithValidateOnStart<SynologyUser>()
             .ValidateDataAnnotations()
-            .ValidateOnStart();
+            .Bind(configuration.GetSection(nameof(SynologyUser)));
         
         services
-            .AddOptions<SynoApiOptions>()
-            .Bind(configuration.GetSection(nameof(SynoApiOptions)))
+            .AddOptionsWithValidateOnStart<SynoApiOptions>()
             .ValidateDataAnnotations()
-            .ValidateOnStart();
+            .Bind(configuration.GetSection(nameof(SynoApiOptions)));
 
         services.AddHttpContextAccessor();
         

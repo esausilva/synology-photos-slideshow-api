@@ -8,7 +8,9 @@ public static class ApiDependencyConfigurationExtensions
         configuration.AddUserSecrets(typeof(Program).Assembly)
             .AddEnvironmentVariables();
         
+#if DEBUG
         Console.WriteLine(configuration.GetDebugView());
+#endif
         
         return configuration;
     }

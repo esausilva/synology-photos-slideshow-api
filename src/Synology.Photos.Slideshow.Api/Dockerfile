@@ -1,21 +1,22 @@
 ﻿FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
 USER $APP_UID
 WORKDIR /app
+RUN mkdir -p /app/slides
 EXPOSE 5097
 EXPOSE 7078
 
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["Synology.Photos.Slideshow.Api/Synology.Photos.Slideshow.Api.csproj", "Synology.Photos.Slideshow.Api/"]
-RUN dotnet restore "Synology.Photos.Slideshow.Api/Synology.Photos.Slideshow.Api.csproj"
+COPY ["src/Synology.Photos.Slideshow.Api/Synology.Photos.Slideshow.Api.csproj", "src/Synology.Photos.Slideshow.Api/"]
+RUN dotnet restore "src/Synology.Photos.Slideshow.Api/Synology.Photos.Slideshow.Api.csproj"
 COPY . .
-WORKDIR "/src/Synology.Photos.Slideshow.Api"
-RUN dotnet build "./Synology.Photos.Slideshow.Api.csproj" -c $BUILD_CONFIGURATION -o /app/build
+WORKDIR "/src/src/Synology.Photos.Slideshow.Api"
+RUN dotnet build "Synology.Photos.Slideshow.Api.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./Synology.Photos.Slideshow.Api.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "Synology.Photos.Slideshow.Api.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
 FROM base AS final
 WORKDIR /app
