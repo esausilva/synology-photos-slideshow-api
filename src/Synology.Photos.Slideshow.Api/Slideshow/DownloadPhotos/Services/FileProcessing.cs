@@ -60,8 +60,8 @@ public sealed class FileProcessing : IFileProcessing
         }
 
         await UnzipPhotos(zipPath, extractPath, cancellationToken);
-        await FlattenDirectory(extractPath, _synoApiOptions.CurrentValue.DownloadFileName, cancellationToken);
         await CleanupZipFile(zipPath, cancellationToken);
+        await FlattenDirectory(extractPath, cancellationToken);
         
         _logger.LogInformation("Finished processing zip file");
     }
@@ -74,7 +74,7 @@ public sealed class FileProcessing : IFileProcessing
         }, cancellationToken);
     }
 
-    private static async Task FlattenDirectory(string rootPath, string downloadFileName, CancellationToken cancellationToken)
+    private static async Task FlattenDirectory(string rootPath, CancellationToken cancellationToken)
     {
         const string macOsMetadataFile = ".DS_Store";
         
@@ -89,8 +89,7 @@ public sealed class FileProcessing : IFileProcessing
                 var fileName = Path.GetFileName(file);
                 var destinationPath = Path.Combine(rootPath, fileName);
                 
-                if (fileName.Equals(downloadFileName, StringComparison.OrdinalIgnoreCase) || 
-                    fileName.Equals(macOsMetadataFile, StringComparison.OrdinalIgnoreCase)) 
+                if (fileName.Equals(macOsMetadataFile, StringComparison.OrdinalIgnoreCase)) 
                     continue;
 
                 if (File.Exists(destinationPath))

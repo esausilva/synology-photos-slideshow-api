@@ -36,7 +36,7 @@ public sealed class SynologyAuthenticationMiddleware
     public async Task InvokeAsync(HttpContext context)
     {
         var path = context.Request.Path;
-        
+
         if (path is { Value: "/download-photos" })
         {
             try
@@ -57,8 +57,10 @@ public sealed class SynologyAuthenticationMiddleware
                 }
             }
         }
-        
-        await _next(context);
+        else
+        {
+            await _next(context);
+        }
     }
 
     private async Task<LoginResponse> AuthenticateAsync(CancellationToken cancellationToken)

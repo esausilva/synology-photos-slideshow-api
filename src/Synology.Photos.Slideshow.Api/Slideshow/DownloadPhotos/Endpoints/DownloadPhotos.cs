@@ -12,27 +12,22 @@ public static class DownloadPhotos
         CancellationToken cancellationToken)
     {
         var fileStationItemsResult = await synoApiSearch.GetPhotos(cancellationToken);
+        
+        if (fileStationItemsResult.IsFailed)
+            return CreateProblemResult(fileStationItemsResult.Errors.Single().Message);
 
-        if(fileStationItemsResult.TryPickT0(out var fileStationItems, out _))
-            await fileStation.Download(fileStationItems, cancellationToken);
-        
+        await fileStation.Download(fileStationItemsResult.Value, cancellationToken);
         await fileProcessing.ProcessZipFile(cancellationToken);
-        
-        return fileStationItemsResult.Match(
-            // TODO: Return NoContent when finalized, but returning Photo Paths for now 
-            items => Results.Ok(items.Select(p => p.Path).ToList()),
-            
-            invalidApiVersionError => CreateProblemResult("Invalid API Version", invalidApiVersionError.Message),
-            searchError => CreateProblemResult("Search Failed", searchError.Message),
-            timeOutError => CreateProblemResult("Search Timeout", timeOutError.Message));
+
+        return Results.NoContent();
     }
     
-    private static IResult CreateProblemResult(string title, string detail)
+    private static IResult CreateProblemResult(string detail)
     {
         return Results.Problem(
-            type: "https://datatracker.ietf.org/doc/html/rfc9110#status.400",
-            statusCode: StatusCodes.Status400BadRequest,
-            title: title,
+            type: "https://datatracker.ietf.org/doc/html/rfc9110#status.503",
+            statusCode: StatusCodes.Status503ServiceUnavailable,
+            title: "Failed to download photos.",
             detail: detail);
     } 
 }

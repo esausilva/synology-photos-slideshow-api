@@ -1,5 +1,5 @@
+using FluentResults;
 using Microsoft.Extensions.Options;
-using OneOf;
 using Synology.Api.Sdk.Constants;
 using Synology.Api.Sdk.SynologyApi;
 using Synology.Api.Sdk.SynologyApi.FileStation.Request;
@@ -7,7 +7,6 @@ using Synology.Api.Sdk.SynologyApi.FileStation.Response;
 using Synology.Photos.Slideshow.Api.Configuration;
 using Synology.Photos.Slideshow.Api.Slideshow.Auth;
 using Synology.Photos.Slideshow.Api.Slideshow.Common;
-using Synology.Photos.Slideshow.Api.Slideshow.Common.Errors;
 
 namespace Synology.Photos.Slideshow.Api.Slideshow.DownloadPhotos.Services;
 
@@ -49,16 +48,14 @@ public sealed class SynologyApiSearch : ISynologyApiSearch
     /// </summary>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
     /// <returns>
-    /// A <see cref="OneOf{T0, T1, T2, T3}"/> representing either:
-    /// - A collection of <see cref="FileStationItem"/>,
-    /// - An <see cref="InvalidApiVersionError"/> if the API version is invalid,
-    /// - A <see cref="FailedToInitiateSearchError"/> if the search initiation fails,
-    /// - A <see cref="SearchTimedOutError"/> if the search operation times out.
+    /// A Result representing either:
+    /// - Success with a collection of FileStationItem or
+    /// - Failure with an error message describing the problem.
     /// </returns>
-    public async Task<OneOf<IList<FileStationItem>, InvalidApiVersionError, FailedToInitiateSearchError, SearchTimedOutError>> 
-        GetPhotos(CancellationToken cancellationToken)
+    public async Task<Result<IList<FileStationItem>>> GetPhotos(CancellationToken cancellationToken)
     {
-        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var searchTimeout = TimeSpan.FromSeconds(_synoApiOptions.CurrentValue.ApiSearchTimeoutInSeconds);
+        using var timeoutCts = new CancellationTokenSource(searchTimeout);
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
         var combinedToken = linkedCts.Token;
 
@@ -67,26 +64,32 @@ public sealed class SynologyApiSearch : ISynologyApiSearch
         
         try
         {
-            var apiVersionResults = await GetApiVersion(combinedToken);
-            if (apiVersionResults.TryPickT1(out var apiVersionError, out apiVersion))
-                return apiVersionError;
+            var apiVersionResult = await GetApiVersion(combinedToken);
+            if (apiVersionResult.IsFailed)
+                return Result.Fail<IList<FileStationItem>>(apiVersionResult.Errors);
+            
+            apiVersion = apiVersionResult.Value;
 
             var searchResult = await InitiateSearch(apiVersion, combinedToken);
-            if (searchResult.TryPickT1(out var searchError, out taskId))
-                return searchError;
+            if (searchResult.IsFailed)
+                return Result.Fail<IList<FileStationItem>>(searchResult.Errors);
+
+            taskId = searchResult.Value;
 
             var photoCountResult = await GetTotalPhotosCount(taskId, apiVersion, combinedToken);
-            if (photoCountResult.TryPickT1(out var countError, out var photosCount))
+            if (photoCountResult.IsFailed)
             {
                 await CleanupSearch(taskId, apiVersion, CancellationToken.None);
-                return countError;
+                return Result.Fail<IList<FileStationItem>>(photoCountResult.Errors);
             }
+
+            var photosCount = photoCountResult.Value;
 
             var fileStationItems = await GetRandomFileStationItems(taskId, apiVersion, photosCount, combinedToken);
 
             await CleanupSearch(taskId, apiVersion, CancellationToken.None);
 
-            return fileStationItems.ToList();
+            return Result.Ok(fileStationItems);
         }
         catch (OperationCanceledException)
         {
@@ -100,32 +103,32 @@ public sealed class SynologyApiSearch : ISynologyApiSearch
     /// <summary>
     /// Gets the appropriate API version for file station operations.
     /// </summary>
-    private async Task<OneOf<int, InvalidApiVersionError>> GetApiVersion(CancellationToken cancellationToken)
+    private async Task<Result<int>> GetApiVersion(CancellationToken cancellationToken)
     {
         var apiVersionInfo = await _apiInfo.GetApiInfo(cancellationToken);
         var apiVersion = apiVersionInfo.SynoFileStationSearch.MaxVersion;
 
-        if (apiVersion > 0) 
-            return apiVersion;
+        if (apiVersion > 0)
+            return Result.Ok(apiVersion);
         
         _logger.LogWarning("Failed to get API version");
-        return new InvalidApiVersionError(apiVersion);
+        return Result.Fail<int>($"Failed to get Synology API version. Reported MaxVersion: {apiVersion}");
     }
 
     /// <summary>
     /// Initiates a search operation on the Synology NAS.
     /// </summary>
-    private async Task<OneOf<string, FailedToInitiateSearchError>> InitiateSearch(int apiVersion, CancellationToken cancellationToken)
+    private async Task<Result<string>> InitiateSearch(int apiVersion, CancellationToken cancellationToken)
     {
         var startRequest = CreateSearchStartRequest(apiVersion);
         var searchUrl = _requestBuilder.BuildUrl(startRequest);
         var searchStartResponse = await _apiService.GetAsync<FileStationSearchStartResponse>(searchUrl, cancellationToken);
 
         if (!string.IsNullOrEmpty(searchStartResponse?.Data?.TaskId))
-            return searchStartResponse.Data.TaskId;
+            return Result.Ok(searchStartResponse.Data.TaskId);
 
         _logger.LogWarning("Failed to initiate search operation");
-        return new FailedToInitiateSearchError();
+        return Result.Fail<string>("Failed to initiate search operation: no task ID returned");
     }
 
     /// <summary>
@@ -145,7 +148,7 @@ public sealed class SynologyApiSearch : ISynologyApiSearch
     /// <summary>
     /// Gets the total count of photos available in the search results.
     /// </summary>
-    private async Task<OneOf<int, SearchTimedOutError>> GetTotalPhotosCount(string taskId, int apiVersion, CancellationToken cancellationToken)
+    private async Task<Result<int>> GetTotalPhotosCount(string taskId, int apiVersion, CancellationToken cancellationToken)
     {
         var listRequest = CreateSearchListRequest(taskId, apiVersion, offset: 0);
         var searchUrl = _requestBuilder.BuildUrl(listRequest);
@@ -167,14 +170,14 @@ public sealed class SynologyApiSearch : ISynologyApiSearch
         if (retryCount >= maxRetryAttempts && searchListResponse?.Data?.Finished is false)
         {
             _logger.LogWarning("Search operation timed out");
-            return new SearchTimedOutError(maxRetryAttempts);
+            return Result.Fail<int>($"Search operation timed out after {maxRetryAttempts} attempts");
         }
 
         if (searchListResponse?.Data?.Total is not null and var total)
-            return total.Value;
+            return Result.Ok(total.Value);
 
         _logger.LogWarning("Failed to get total photo count");
-        return 0;
+        return Result.Ok(0);
     }
 
     /// <summary>
