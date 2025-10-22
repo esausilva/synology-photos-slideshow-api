@@ -1,7 +1,5 @@
 ﻿FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
-USER $APP_UID
 WORKDIR /app
-RUN mkdir -p /app/slides
 EXPOSE 5097
 EXPOSE 7078
 
@@ -21,4 +19,10 @@ RUN dotnet publish "Synology.Photos.Slideshow.Api.csproj" -c $BUILD_CONFIGURATIO
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+# The container will run as root for now as it needs read access to the mounted volumes in the NAS. Will fix later.
+#RUN mkdir -p /app/slides && chown -R $APP_UID:$APP_UID /app/slides
+#RUN mkdir -p /app/logs && chown -R $APP_UID:$APP_UID /app/logs
+#USER $APP_UID
+RUN mkdir -p /app/slides
+RUN mkdir -p /app/logs
 ENTRYPOINT ["dotnet", "Synology.Photos.Slideshow.Api.dll"]
