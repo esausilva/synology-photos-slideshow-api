@@ -241,14 +241,24 @@ The environment variables will be as follows:
 | SynoApiOptions:NumberOfPhotoDownloads     | 79                               |
 | SynoApiOptions:DownloadAbsolutePath       | /app/slides                      |
 
+## Important !!!!!!!
+
+I highly suggest you create a DHCP reservation in your router for the IP address of your Synology NAS device.
+
+This will make it predictable and not change every time you restart your NAS, or the IP address changes.
+
 ## Future Enhancements
 
-The API is pretty much an MVP. I would like to add the following features:
+The API is pretty much an MVP. I would like to add the following features (in no particular order):
 
 - Scheduled jobs to download a new set of photos in the background, configurable to run every X number of days. This is because the current process is to manually call the download endpoint, and I'd like to automate this process to run once a week.
 - Have SignalR to notify the client when a new set of photos is available. A predecessor to this is to have the background job feature mentioned above completed.
 - Have a "permanent photos" folder that will not be cleaned by the `Download Photos` endpoint. This is to allow me to upload photos manually from my phone or computer and have them be available to the slideshow application. Say we recently took a trip and I want to display photos from that trip alongside the randomly selected photos. These photos will be available until manual deletion.
   - For this to work, the volume mapping to `/app/slides` is required, so I have access to the slides folder from the NAS device and use Synology Files on my phone to upload the photos, or DSM from the computer browser.
+- A delete endpoint to remove photos from the slideshow. Note that this will only delete the photos from the slideshow (`SynoApiOptions:DownloadAbsolutePath`), not the actual photos on the NAS device. 
+- Refactor the `Get Photo URLs` endpoint to return metadata about the photos. To include the photo's date taken and the photo's location.
+  - This is to display an overlay on each photo with the date and location. Possibly a link to Google Maps with the location.
+- A "blacklist" endpoint to prevent certain photos from ever being displayed. Say, you see a photo in the slideshow that you don't want to display, ever. The endpoint would delete and add it to the blacklist, so it will not be downloaded again.
 - What else? Will see...
 
 ## Client App
@@ -256,3 +266,18 @@ The API is pretty much an MVP. I would like to add the following features:
 Not yet created. I will post an update and a link to the repo once it's ready.
 
 It will be a web app, so I can access it on a Raspberry Pi and have it on my kitchen/dining counter area.
+
+## Shameless Plug
+
+I am using my own Synology API SDK to do the heavy lifting of interacting with the official Synology API to fetch the photos and request the download.
+
+Check it out: 
+
+- GitHub Repo: [Synology API SDK](https://github.com/esausilva/synology-api-sdk)
+- NuGet Package: [Synology.API.SDK](https://www.nuget.org/packages/Synology.API.SDK)
+
+## Giving Back
+
+If you find this project useful in any way, consider getting me a coffee by clicking on the image below. I would really appreciate it!
+
+[![Buy Me A Coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/esausilva)
