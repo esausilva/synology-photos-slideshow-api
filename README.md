@@ -2,15 +2,15 @@
 
 > An API to randomly fetch and serve images from Synology NAS devices, optimized for use in slideshow applications.
 
+The idea behind this API is to download a set of photos picked at random from your Synology NAS device to be displayed in a client slideshow application.
+
+This set of photos can be refreshed at any time by calling the `Download Photos` endpoint.
+
 The API is meant to be deployed on a Synology NAS device on your local network and accessed from within your local network.
 
 I have the API deployed and tested in Synology Container Manager, but it should work on any Docker host. i.e. Portainer.
 
-The idea behind this API is to download a set of photos picked at random from your Synology NAS device to be displayed in a client slideshow application.
-
-I will be creating a web client application that uses this API, but it really can be anything. (_coming soonish_)
-
-This set of photos can be refreshed at any time by calling the `Download Photos` endpoint.
+I will be creating a web client application that calls this API, but it really can be anything. (_coming soonish_)
 
 ## Endpoints
 
@@ -247,12 +247,12 @@ The API is pretty much an MVP. I would like to add the following features:
 
 - Scheduled jobs to download a new set of photos in the background, configurable to run every X number of days. This is because the current process is to manually call the download endpoint, and I'd like to automate this process to run once a week.
 - Have SignalR to notify the client when a new set of photos is available. A predecessor to this is to have the background job feature mentioned above completed.
-- Have a "permanent photos" folder that will not be cleaned by the "download photos" endpoint. This is to allow me to upload photos manually from my phone or computer and have them be available to the slideshow application. Say we recently took a trip and I want to display photos from that trip alongside the randomly selected photos. These photos will be available until manual deletion.
-  - For this to work, the volume mapping is required, so I have access to the slides folder from the NAS device, and use Synology Files on my phone to upload the photos, or DSM from the computer browser.
+- Have a "permanent photos" folder that will not be cleaned by the `Download Photos` endpoint. This is to allow me to upload photos manually from my phone or computer and have them be available to the slideshow application. Say we recently took a trip and I want to display photos from that trip alongside the randomly selected photos. These photos will be available until manual deletion.
+  - For this to work, the volume mapping to `/app/slides` is required, so I have access to the slides folder from the NAS device and use Synology Files on my phone to upload the photos, or DSM from the computer browser.
 - What else? Will see...
 
 ## Client App
 
 Not yet created. I will post an update and a link to the repo once it's ready.
 
-It will be a web app, so I can access it on a Raspberry Pi and have it on my kitchen/dining area counter.
+It will be a web app, so I can access it on a Raspberry Pi and have it on my kitchen/dining counter area.
