@@ -128,7 +128,7 @@ Update the following app settings in `appsettings.json` or create a .NET User Se
 ```
 
 - `UriBase.ServerIpOrHostname`: The IP or hostname of your Synology NAS device.
-- `UriBase.Post`: The default for Synology NAS devices is **5000**. If you are using a different port, update this value to match.
+- `UriBase.Port`: The default port for Synology NAS devices is **5000**. If you are using a different port, update this value to match.
 - `SynologyUser.Account`: The username for your Synology NAS device. It can be your main account or a service account with enough privileges to access files.
 - `SynologyUser.Password`: The password for your Synology NAS device.
 - `SynoApiOptions.FileStationSearchFolders`: A list of folders on your Synology NAS device to search for photos. Must be absolute paths.
@@ -245,7 +245,7 @@ The environment variables will be as follows:
 
 I highly suggest you create a DHCP reservation in your router for the IP address of your Synology NAS device.
 
-This will make it predictable and not change every time you restart your NAS, or the IP address changes.
+This will make it predictable and not change every time your NAS restarts, or the IP address changes.
 
 ## Future Enhancements
 
@@ -263,9 +263,12 @@ The API is pretty much an MVP. I would like to add the following features (in no
 
 ## Client App
 
-Not yet created. I will post an update and a link to the repo once it's ready.
+I am currently working on a client app for this API. It can be found here: 
 
-It will be a web app, so I can access it on a Raspberry Pi and have it on my kitchen/dining counter area.
+Synology Photos Slideshow Client
+[https://github.com/esausilva/synology-photos-slideshow-client](https://github.com/esausilva/synology-photos-slideshow-client)
+
+It is a web app, so I can access it on a Raspberry Pi and have it on my kitchen/dining counter area.
 
 ## Shameless Plug
 
