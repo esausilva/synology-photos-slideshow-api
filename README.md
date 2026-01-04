@@ -10,7 +10,22 @@ The API is meant to be deployed on a Synology NAS device on your local network a
 
 I have the API deployed and tested in Synology Container Manager, but it should work on any Docker host. i.e. Portainer.
 
-I will be creating a web client application that calls this API, but it really can be anything. (_coming soonish_)
+Table of Contents:
+
+  - [Endpoints](#endpoints)
+    - [Download Photos](#download-photos)
+    - [Get Photo URLs](#get-photo-urls)
+  - [Logging](#logging)
+  - [Local Development](#local-development)
+  - [Local Testing with Docker](#local-testing-with-docker)
+  - [Deployment To Your Synology NAS Device](#deployment-to-your-synology-nas-device)
+  - [Important !!!!!!!](#important)
+  - [Future Enhancements](#future-enhancements)
+  - [Client App](#client-app)
+  - [Shameless Plug](#shameless-plug)
+  - [Giving Back](#giving-back)
+
+---
 
 ## Endpoints
 
@@ -187,7 +202,7 @@ Note: It would be a good idea to rename the image on both Docker compose files a
 
 Two options:
 
-1. Download the latest image from my Docker Hub: [esausilva/synology.photos.slideshow.api](https://hub.docker.com/r/esausilva/synology.photos.slideshow.api).
+1. Download the latest image from my Docker Hub Repo: [esausilva/synology.photos.slideshow.api](https://hub.docker.com/r/esausilva/synology.photos.slideshow.api).
 2. Build the image yourself and push it to your own Docker Hub repository. Following this route you will need to rename the image to match your repository in the `docker-compose.yml` file. 
 
 **For option 2:**
@@ -263,12 +278,10 @@ The API is pretty much an MVP. I would like to add the following features (in no
 
 ## Client App
 
-I am currently working on a client app for this API. It can be found here: 
+The web client app MVP is now available at: 
 
 Synology Photos Slideshow Client
 [https://github.com/esausilva/synology-photos-slideshow-client](https://github.com/esausilva/synology-photos-slideshow-client)
-
-It is a web app, so I can access it on a Raspberry Pi and have it on my kitchen/dining counter area.
 
 ## Shameless Plug
 
