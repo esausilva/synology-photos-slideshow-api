@@ -8,3 +8,4 @@ misc/
 docker-compose.local.yaml
 .slides/
 .logs/
+.idea/

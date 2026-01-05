@@ -3,6 +3,7 @@ using Synology.Api.Sdk.Config;
 using Synology.Photos.Slideshow.Api.DI;
 using Synology.Photos.Slideshow.Api.Extensions;
 using Synology.Photos.Slideshow.Api.Middleware;
+using Synology.Photos.Slideshow.Api.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +19,7 @@ var services = builder.Services;
 services
     .ConfigureServices(configuration)
     .AddSerilog(serilog)
+    .AddCors(Cors.Configure())
     .AddOpenApi()
     .AddExceptionHandler<GlobalExceptionHandlerMiddleware>()
     .AddProblemDetails()
@@ -30,6 +32,7 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.UseCors(Cors.FrontEndPolicyName);
 app.UseHttpsRedirection();
 app.UseExceptionHandler();
 app.ConfigureStaticFiles();

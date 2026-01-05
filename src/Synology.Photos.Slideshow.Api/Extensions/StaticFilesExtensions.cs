@@ -18,7 +18,14 @@ public static class StaticFilesExtensions
         app.UseStaticFiles(new StaticFileOptions
         {
             FileProvider = new PhysicalFileProvider(photosPath),
-            RequestPath = SlideshowConstants.BaseRoute
+            RequestPath = SlideshowConstants.BaseRoute,
+            OnPrepareResponse = ctx =>
+            {
+                // Cache images for 7 days
+                const int durationInSeconds = 60 * 60 * 24 * 7;
+                ctx.Context.Response.Headers[Microsoft.Net.Http.Headers.HeaderNames.CacheControl] =
+                    "public,max-age=" + durationInSeconds;
+            }
         });
     }
 }
