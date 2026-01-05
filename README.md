@@ -274,6 +274,7 @@ The API is pretty much an MVP. I would like to add the following features (in no
 - Refactor the `Get Photo URLs` endpoint to return metadata about the photos. To include the photo's date taken and the photo's location.
   - This is to display an overlay on each photo with the date and location. Possibly a link to Google Maps with the location.
 - A "blacklist" endpoint to prevent certain photos from ever being displayed. Say, you see a photo in the slideshow that you don't want to display, ever. The endpoint would delete and add it to the blacklist, so it will not be downloaded again.
+- Allow the user to configure the number of photos to download from the client app.
 - What else? Will see...
 
 ## Client App
