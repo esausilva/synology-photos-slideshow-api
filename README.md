@@ -196,7 +196,7 @@ docker-compose -f docker-compose.yaml -f docker-compose.local.yaml up -d
 
 `-d` is optional if you want to run the container as a detached (background) process.
 
-Note: It would be a good idea to rename the image on both Docker compose files and remove my name from the image name.
+Note: It would be a good idea to rename the image in both Docker compose files and remove my name from the image name.
 
 ## Deployment To Your Synology NAS Device
 
@@ -260,7 +260,7 @@ The environment variables will be as follows:
 
 I highly suggest you create a DHCP reservation in your router for the IP address of your Synology NAS device.
 
-This will make it predictable and not change every time your NAS restarts, or the IP address changes.
+This will make the IP predictable and not change every time your NAS restarts, or DHCP assigns a new IP address.
 
 ## Future Enhancements
 
