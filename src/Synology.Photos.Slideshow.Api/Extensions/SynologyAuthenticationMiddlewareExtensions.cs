@@ -4,8 +4,11 @@ namespace Synology.Photos.Slideshow.Api.Extensions;
 
 public static class SynologyAuthenticationMiddlewareExtensions
 {
-    public static IApplicationBuilder UseSynologyAuthentication(this IApplicationBuilder builder)
+    extension(IApplicationBuilder builder)
     {
-        return builder.UseMiddleware<SynologyAuthenticationMiddleware>();
+        public IApplicationBuilder UseSynologyAuthentication()
+        {
+            return builder.UseMiddleware<SynologyAuthenticationMiddleware>();
+        }
     }
 }

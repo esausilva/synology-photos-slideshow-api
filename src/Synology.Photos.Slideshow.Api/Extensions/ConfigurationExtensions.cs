@@ -8,30 +8,30 @@ namespace Synology.Photos.Slideshow.Api.Extensions;
 
 public static class ConfigurationExtensions
 {
-    public static IServiceCollection ConfigureServices(
-        this IServiceCollection services, 
-        ConfigurationManager configuration
-    )
+    extension(IServiceCollection services)
     {
-        services
-            .AddOptionsWithValidateOnStart<SynologyUser>()
-            .ValidateDataAnnotations()
-            .Bind(configuration.GetSection(nameof(SynologyUser)));
+        public IServiceCollection ConfigureServices(ConfigurationManager configuration)
+        {
+            services
+                .AddOptionsWithValidateOnStart<SynologyUser>()
+                .ValidateDataAnnotations()
+                .Bind(configuration.GetSection(nameof(SynologyUser)));
         
-        services
-            .AddOptionsWithValidateOnStart<SynoApiOptions>()
-            .ValidateDataAnnotations()
-            .Bind(configuration.GetSection(nameof(SynoApiOptions)));
+            services
+                .AddOptionsWithValidateOnStart<SynoApiOptions>()
+                .ValidateDataAnnotations()
+                .Bind(configuration.GetSection(nameof(SynoApiOptions)));
 
-        services.AddHttpContextAccessor();
+            services.AddHttpContextAccessor();
         
-        services.AddScoped<ISynologyAuthenticationContext, SynologyAuthenticationContext>();
-        services.AddSingleton<ISynologyApiInfo, SynologyApiInfo>();
-        services.AddTransient<ISynologyApiSearch, SynologyApiSearch>();
-        services.AddTransient<IFileStation, FileStation>();
-        services.AddTransient<IFileProcessing, FileProcessing>();
-        services.AddTransient<IPhotosService, PhotosService>();
+            services.AddScoped<ISynologyAuthenticationContext, SynologyAuthenticationContext>();
+            services.AddSingleton<ISynologyApiInfo, SynologyApiInfo>();
+            services.AddTransient<ISynologyApiSearch, SynologyApiSearch>();
+            services.AddTransient<IFileStation, FileStation>();
+            services.AddTransient<IFileProcessing, FileProcessing>();
+            services.AddTransient<IPhotosService, PhotosService>();
   
-        return services;
+            return services;
+        }
     }
 }
