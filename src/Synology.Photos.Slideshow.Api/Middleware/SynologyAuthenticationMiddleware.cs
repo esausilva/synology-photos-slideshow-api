@@ -37,7 +37,7 @@ public sealed class SynologyAuthenticationMiddleware
     {
         var path = context.Request.Path;
 
-        if (path is { Value: "/download-photos" })
+        if (path is { Value: "/photos/download" })
         {
             try
             {

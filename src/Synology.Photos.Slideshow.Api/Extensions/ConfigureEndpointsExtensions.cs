@@ -9,18 +9,29 @@ public static class ConfigureEndpointsExtensions
     {
         public void ConfigureEndpoints()
         {
-            app.MapGet("download-photos", DownloadPhotos.GetAsync)
-                .WithName("DownloadPhotos")
-                .Produces<IList<string>>(StatusCodes.Status204NoContent);
+            app.MapGroup("photos")
+                .WithPhotosPrefix();
+        }
+    }
 
-            app.MapGet("get-photo-urls", Slides.GetAsync)
+    extension(RouteGroupBuilder group)
+    {
+        private RouteGroupBuilder WithPhotosPrefix()
+        {
+            group.MapGet("download", DownloadPhotos.GetAsync)
+                .WithName("DownloadPhotos")
+                .Produces<IList<string>>();
+
+            group.MapGet("relative-urls", Slides.GetAsync)
                 .WithName("GetPhotoUrls")
                 .Produces<IList<string>>();
             
-            app.MapPost("photos/bulk-delete", DeletePhoto.PostAsync)
+            group.MapPost("bulk-delete", DeletePhoto.PostAsync)
                 .WithName("BulkDeletePhotos")
                 .Produces(StatusCodes.Status204NoContent)
                 .Produces<IList<string>>(StatusCodes.Status404NotFound);
+            
+            return group;
         }
     }
 }
