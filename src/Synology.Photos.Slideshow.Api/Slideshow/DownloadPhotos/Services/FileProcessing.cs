@@ -4,6 +4,9 @@ using Synology.Photos.Slideshow.Api.Configuration;
 
 namespace Synology.Photos.Slideshow.Api.Slideshow.DownloadPhotos.Services;
 
+/// <summary>
+/// Provides functionality for file processing operations.
+/// </summary>
 public sealed class FileProcessing : IFileProcessing
 {
     private readonly IOptionsMonitor<SynoApiOptions> _synoApiOptions;
@@ -15,17 +18,21 @@ public sealed class FileProcessing : IFileProcessing
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
+    /// <summary>
+    /// Cleans the download directory.
+    /// </summary>
+    /// <param name="cancellationToken"></param>
     public async Task CleanDownloadDirectory(CancellationToken cancellationToken)
     {
         var rootPath = _synoApiOptions.CurrentValue.DownloadAbsolutePath;
 
         if (!Directory.Exists(rootPath))
         {
-            _logger.LogWarning("Directory {RootPath} does not exist", rootPath);
+            _logger.LogWarning("Directory '{RootPath}' does not exist", rootPath);
             return;
         }
 
-        _logger.LogInformation("Cleaning directory {RootPath}", rootPath);
+        _logger.LogInformation("Cleaning directory '{RootPath}'", rootPath);
 
         await Task.Run(() =>
         {
@@ -41,10 +48,14 @@ public sealed class FileProcessing : IFileProcessing
                 Directory.Delete(dir, true);
             }
             
-            _logger.LogInformation("Directory {RootPath} cleaned", rootPath);
+            _logger.LogInformation("Directory '{RootPath}' cleaned", rootPath);
         }, cancellationToken);
     }
 
+    /// <summary>
+    /// Unzips the photos zip file and flattens the directory structure.
+    /// </summary>
+    /// <param name="cancellationToken"></param>
     public async Task ProcessZipFile(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Processing zip file");
@@ -55,7 +66,7 @@ public sealed class FileProcessing : IFileProcessing
 
         if (!File.Exists(zipPath))
         {
-            _logger.LogError("File {ZipPath} does not exist", zipPath);
+            _logger.LogError("File '{ZipPath}' does not exist", zipPath);
             return;
         }
 
@@ -64,6 +75,33 @@ public sealed class FileProcessing : IFileProcessing
         await FlattenDirectory(extractPath, cancellationToken);
         
         _logger.LogInformation("Finished processing zip file");
+    }
+    
+    /// <summary>
+    /// Deletes a photo from the local file system.
+    /// </summary>
+    /// <param name="photosToDelete"></param>
+    /// <param name="cancellationToken"></param>
+    public async Task DeletePhotoAsync(IList<string> photosToDelete, CancellationToken cancellationToken)
+    {
+        var rootPath = _synoApiOptions.CurrentValue.DownloadAbsolutePath;
+        
+        if (!Directory.Exists(rootPath))
+        {
+            _logger.LogWarning("Directory '{RootPath}' does not exist", rootPath);
+            return;
+        }
+        
+        await Task.Run(() =>
+        {
+            foreach (var currentPhoto in photosToDelete)
+            {
+                _logger.LogInformation("Deleting photo with name '{name}'", currentPhoto);
+                
+                var photoPath = Path.Combine(rootPath, currentPhoto);
+                File.Delete(photoPath);
+            }
+        }, cancellationToken);
     }
 
     private static async Task UnzipPhotos(string zipPath, string extractPath, CancellationToken cancellationToken)
