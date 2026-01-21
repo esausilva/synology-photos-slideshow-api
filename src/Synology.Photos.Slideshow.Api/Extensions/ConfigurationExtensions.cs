@@ -25,10 +25,10 @@ public static class ConfigurationExtensions
             services.AddHttpContextAccessor();
         
             services.AddScoped<ISynologyAuthenticationContext, SynologyAuthenticationContext>();
-            services.AddSingleton<ISynologyApiInfo, SynologyApiInfo>();
-            services.AddTransient<ISynologyApiSearch, SynologyApiSearch>();
+            services.AddSingleton<ISynologyApiInfoProvider, SynologyApiInfoProvider>();
+            services.AddTransient<INasPhotoSearchService, NasPhotoSearchService>();
             services.AddTransient<IFileStation, FileStation>();
-            services.AddTransient<IFileProcessing, FileProcessing>();
+            services.AddTransient<IFileProcessor, FileProcessor>();
             services.AddTransient<IPhotosService, PhotosService>();
   
             return services;

@@ -13,7 +13,7 @@ public sealed class SynologyAuthenticationMiddleware
     private readonly RequestDelegate _next;
     private readonly ISynologyApiService _synoApiService;
     private readonly ISynologyApiRequestBuilder _synoApiRequestBuilder;
-    private readonly ISynologyApiInfo _synoApiInfo;
+    private readonly ISynologyApiInfoProvider _apiInfoProvider;
     private readonly SynologyUser _user;
     private readonly ILogger<SynologyAuthenticationMiddleware> _logger;
 
@@ -21,14 +21,14 @@ public sealed class SynologyAuthenticationMiddleware
         RequestDelegate next,
         ISynologyApiService synoApiService,
         ISynologyApiRequestBuilder synoApiRequestBuilder,
-        ISynologyApiInfo synoApiInfo,
+        ISynologyApiInfoProvider apiInfoProvider,
         IOptions<SynologyUser> synologyUser,
         ILogger<SynologyAuthenticationMiddleware> logger)
     {
         _next = next;
         _synoApiService = synoApiService;
         _synoApiRequestBuilder = synoApiRequestBuilder;
-        _synoApiInfo = synoApiInfo;
+        _apiInfoProvider = apiInfoProvider;
         _user = synologyUser.Value;
         _logger = logger;
     }
@@ -67,7 +67,7 @@ public sealed class SynologyAuthenticationMiddleware
     {
         try
         {
-            var apiVersionInfo = await _synoApiInfo.GetApiInfo(cancellationToken);
+            var apiVersionInfo = await _apiInfoProvider.GetOrFetchInfo(cancellationToken);
             var loginRequest = new LoginRequest(
                 method: SynologyApiMethods.Api.Auth_Login,
                 version: apiVersionInfo.SynoApiAuth.MaxVersion,
@@ -94,7 +94,7 @@ public sealed class SynologyAuthenticationMiddleware
     {
         try
         {
-            var apiVersionInfo = await _synoApiInfo.GetApiInfo(cancellationToken);
+            var apiVersionInfo = await _apiInfoProvider.GetOrFetchInfo(cancellationToken);
             var logoutRequest = new LogoutRequest(
                 method: SynologyApiMethods.Api.Auth_Logout,
                 version: apiVersionInfo.SynoApiAuth.MaxVersion,

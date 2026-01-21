@@ -17,29 +17,29 @@ namespace Synology.Photos.Slideshow.Api.Slideshow.DownloadPhotos.Services;
 /// </summary>
 public sealed class FileStation : IFileStation
 {
-    private readonly ISynologyApiInfo _apiInfo;
+    private readonly ISynologyApiInfoProvider _apiInfoProvider;
     private readonly ISynologyApiService _apiService;
     private readonly ISynologyApiRequestBuilder _requestBuilder;
     private readonly ISynologyAuthenticationContext _authContext;
     private readonly IOptionsMonitor<SynoApiOptions> _synoApiOptions;
-    private readonly IFileProcessing _fileProcessing;
+    private readonly IFileProcessor _fileProcessor;
     private readonly ILogger<FileStation> _logger;
 
     public FileStation(
-        ISynologyApiInfo apiInfo, 
+        ISynologyApiInfoProvider apiInfoProvider, 
         ISynologyApiService apiService, 
         ISynologyApiRequestBuilder requestBuilder,
         ISynologyAuthenticationContext authContext,
         IOptionsMonitor<SynoApiOptions> synoApiOptions,
-        IFileProcessing fileProcessing,
+        IFileProcessor fileProcessor,
         ILogger<FileStation> logger)
     {
-        _apiInfo = apiInfo ?? throw new ArgumentNullException(nameof(apiInfo));
+        _apiInfoProvider = apiInfoProvider ?? throw new ArgumentNullException(nameof(apiInfoProvider));
         _apiService = apiService ?? throw new ArgumentNullException(nameof(apiService));
         _requestBuilder = requestBuilder ?? throw new ArgumentNullException(nameof(requestBuilder));
         _authContext = authContext ?? throw new ArgumentNullException(nameof(authContext));
         _synoApiOptions = synoApiOptions ?? throw new ArgumentNullException(nameof(synoApiOptions));
-        _fileProcessing = fileProcessing ?? throw new ArgumentNullException(nameof(fileProcessing));
+        _fileProcessor = fileProcessor ?? throw new ArgumentNullException(nameof(fileProcessor));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -51,7 +51,7 @@ public sealed class FileStation : IFileStation
     /// <returns>A task that represents the asynchronous download operation.</returns>
     public async Task Download(IList<FileStationItem> fileStationItems, CancellationToken cancellationToken)
     {
-        await _fileProcessing.CleanDownloadDirectory(cancellationToken);
+        await _fileProcessor.CleanDownloadDirectory(cancellationToken);
         
         var downloadRequest = new FileStationDownloadRequest(
             version: await GetApiVersion(cancellationToken),
@@ -75,7 +75,7 @@ public sealed class FileStation : IFileStation
     /// </summary>
     private async Task<int> GetApiVersion(CancellationToken cancellationToken)
     {
-        var apiVersionInfo = await _apiInfo.GetApiInfo(cancellationToken);
+        var apiVersionInfo = await _apiInfoProvider.GetOrFetchInfo(cancellationToken);
         
         return apiVersionInfo.SynoFileStationDownload.MaxVersion;
     }

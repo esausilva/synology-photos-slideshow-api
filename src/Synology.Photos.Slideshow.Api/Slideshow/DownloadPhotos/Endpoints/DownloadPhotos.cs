@@ -6,18 +6,18 @@ public static class DownloadPhotos
 {
     public static async Task<IResult> GetAsync(
         HttpContext context,
-        ISynologyApiSearch synoApiSearch,
+        INasPhotoSearchService photoSearchService,
         IFileStation fileStation,
-        IFileProcessing fileProcessing,
+        IFileProcessor fileProcessor,
         CancellationToken cancellationToken)
     {
-        var fileStationItemsResult = await synoApiSearch.GetPhotos(cancellationToken);
+        var fileStationItemsResult = await photoSearchService.SearchPhotos(cancellationToken);
         
         if (fileStationItemsResult.IsFailed)
             return CreateProblemResult(fileStationItemsResult.Errors.Single().Message);
 
         await fileStation.Download(fileStationItemsResult.Value, cancellationToken);
-        await fileProcessing.ProcessZipFile(cancellationToken);
+        await fileProcessor.ProcessZipFile(cancellationToken);
 
         return Results.NoContent();
     }

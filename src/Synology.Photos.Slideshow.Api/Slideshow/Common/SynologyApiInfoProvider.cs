@@ -5,19 +5,19 @@ using Synology.Api.Sdk.SynologyApi.ApiInfo.Response;
 
 namespace Synology.Photos.Slideshow.Api.Slideshow.Common;
 
-public sealed class SynologyApiInfo : ISynologyApiInfo
+public sealed class SynologyApiInfoProvider : ISynologyApiInfoProvider
 {
     private readonly ISynologyApiService _synoApiService;
     private readonly ISynologyApiRequestBuilder _synoApiRequestBuilder;
     private ApiInfoData? _apiInfoData;
 
-    public SynologyApiInfo(ISynologyApiService synoApiService, ISynologyApiRequestBuilder synoApiRequestBuilder)
+    public SynologyApiInfoProvider(ISynologyApiService synoApiService, ISynologyApiRequestBuilder synoApiRequestBuilder)
     {
         _synoApiService = synoApiService;
         _synoApiRequestBuilder = synoApiRequestBuilder;
     }
     
-    public async Task<ApiInfoData> GetApiInfo(CancellationToken cancellationToken)
+    public async Task<ApiInfoData> GetOrFetchInfo(CancellationToken cancellationToken)
     {
         if (_apiInfoData is not null) 
             return _apiInfoData;

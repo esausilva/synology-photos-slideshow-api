@@ -7,12 +7,12 @@ namespace Synology.Photos.Slideshow.Api.Slideshow.DownloadPhotos.Services;
 /// <summary>
 /// Provides functionality for file processing operations.
 /// </summary>
-public sealed class FileProcessing : IFileProcessing
+public sealed class FileProcessor : IFileProcessor
 {
     private readonly IOptionsMonitor<SynoApiOptions> _synoApiOptions;
-    private readonly ILogger<FileProcessing> _logger;
+    private readonly ILogger<FileProcessor> _logger;
 
-    public FileProcessing(IOptionsMonitor<SynoApiOptions> synoApiOptions, ILogger<FileProcessing>  logger)
+    public FileProcessor(IOptionsMonitor<SynoApiOptions> synoApiOptions, ILogger<FileProcessor>  logger)
     {
         _synoApiOptions = synoApiOptions ?? throw new ArgumentNullException(nameof(synoApiOptions));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));

@@ -13,29 +13,29 @@ namespace Synology.Photos.Slideshow.Api.Slideshow.DownloadPhotos.Services;
 /// <summary>
 /// Provides functionality to search and retrieve photos from a Synology NAS.
 /// </summary>
-public sealed class SynologyApiSearch : ISynologyApiSearch
+public sealed class NasPhotoSearchService : INasPhotoSearchService
 {
-    private readonly ISynologyApiInfo _apiInfo;
+    private readonly ISynologyApiInfoProvider _apiInfoProvider;
     private readonly ISynologyApiService _apiService;
     private readonly ISynologyApiRequestBuilder _requestBuilder;
     private readonly ISynologyAuthenticationContext _authContext;
     private readonly IOptionsMonitor<SynoApiOptions> _synoApiOptions;
-    private readonly ILogger<SynologyApiSearch> _logger;
+    private readonly ILogger<NasPhotoSearchService> _logger;
 
     private static readonly IList<string> VideoFileExtensions = [".mp4", ".mov", ".avi", ".mkv", ".wmv"];
 
     private const int SingleItemLimit = 1;
     private const int SearchPollingDelayMs = 3_000;
 
-    public SynologyApiSearch(
-        ISynologyApiInfo apiInfo, 
+    public NasPhotoSearchService(
+        ISynologyApiInfoProvider apiInfoProvider, 
         ISynologyApiService apiService, 
         ISynologyApiRequestBuilder requestBuilder,
         ISynologyAuthenticationContext authContext,
         IOptionsMonitor<SynoApiOptions> synoApiOptions, 
-        ILogger<SynologyApiSearch> logger)
+        ILogger<NasPhotoSearchService> logger)
     {
-        _apiInfo = apiInfo ?? throw new ArgumentNullException(nameof(apiInfo));
+        _apiInfoProvider = apiInfoProvider ?? throw new ArgumentNullException(nameof(apiInfoProvider));
         _apiService = apiService ?? throw new ArgumentNullException(nameof(apiService));
         _requestBuilder = requestBuilder ?? throw new ArgumentNullException(nameof(requestBuilder));
         _authContext = authContext ?? throw new ArgumentNullException(nameof(authContext));
@@ -52,7 +52,7 @@ public sealed class SynologyApiSearch : ISynologyApiSearch
     /// - Success with a collection of FileStationItem or
     /// - Failure with an error message describing the problem.
     /// </returns>
-    public async Task<Result<IList<FileStationItem>>> GetPhotos(CancellationToken cancellationToken)
+    public async Task<Result<IList<FileStationItem>>> SearchPhotos(CancellationToken cancellationToken)
     {
         var searchTimeout = TimeSpan.FromSeconds(_synoApiOptions.CurrentValue.ApiSearchTimeoutInSeconds);
         using var timeoutCts = new CancellationTokenSource(searchTimeout);
@@ -105,7 +105,7 @@ public sealed class SynologyApiSearch : ISynologyApiSearch
     /// </summary>
     private async Task<Result<int>> GetApiVersion(CancellationToken cancellationToken)
     {
-        var apiVersionInfo = await _apiInfo.GetApiInfo(cancellationToken);
+        var apiVersionInfo = await _apiInfoProvider.GetOrFetchInfo(cancellationToken);
         var apiVersion = apiVersionInfo.SynoFileStationSearch.MaxVersion;
 
         if (apiVersion > 0)

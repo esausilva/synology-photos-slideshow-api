@@ -8,7 +8,7 @@ public static class DeletePhoto
 {
     public static async Task<IResult> PostAsync([FromBody] IList<string> request,
         IPhotosService photosService, 
-        IFileProcessing fileProcessing,
+        IFileProcessor fileProcessor,
         CancellationToken cancellationToken)
     {
         var photoUrls = await photosService.GetPhotoRelativeUrls(cancellationToken);
@@ -22,7 +22,7 @@ public static class DeletePhoto
         if (photosToDelete.Count == 0)
             return Results.NotFound();
 
-        await fileProcessing.DeletePhotoAsync(photosToDelete, cancellationToken);
+        await fileProcessor.DeletePhotoAsync(photosToDelete, cancellationToken);
         
         return Results.Ok(new { unmatchedPhotos });
     }
