@@ -9,3 +9,4 @@ docker-compose.local.yaml
 .slides/
 .logs/
 .idea/
+.DS_Store
