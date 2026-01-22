@@ -1,5 +1,4 @@
-using Synology.Photos.Slideshow.Api.Slideshow.DownloadPhotos.Endpoints;
-using Synology.Photos.Slideshow.Api.Slideshow.Web.Endpoints;
+using Synology.Photos.Slideshow.Api.Slideshow.Endpoints;
 
 namespace Synology.Photos.Slideshow.Api.Extensions;
 

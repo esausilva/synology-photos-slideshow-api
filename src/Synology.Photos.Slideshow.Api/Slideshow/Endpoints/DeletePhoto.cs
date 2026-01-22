@@ -1,8 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
-using Synology.Photos.Slideshow.Api.Slideshow.DownloadPhotos.Services;
-using Synology.Photos.Slideshow.Api.Slideshow.Web.Services;
+using Synology.Photos.Slideshow.Api.Slideshow.Services;
 
-namespace Synology.Photos.Slideshow.Api.Slideshow.Web.Endpoints;
+namespace Synology.Photos.Slideshow.Api.Slideshow.Endpoints;
 
 public static class DeletePhoto
 {

@@ -6,9 +6,9 @@ using Synology.Api.Sdk.SynologyApi.FileStation.Response;
 using Synology.Api.Sdk.SynologyApi.Helpers;
 using Synology.Photos.Slideshow.Api.Configuration;
 using Synology.Photos.Slideshow.Api.Slideshow.Auth;
-using Synology.Photos.Slideshow.Api.Slideshow.Common;
+using Synology.Photos.Slideshow.Api.Slideshow.Providers;
 
-namespace Synology.Photos.Slideshow.Api.Slideshow.DownloadPhotos.Services;
+namespace Synology.Photos.Slideshow.Api.Slideshow.Services;
 
 /// <summary>
 /// Represents a service that interacts with the Synology FileStation API to perform file operations

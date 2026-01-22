@@ -2,7 +2,7 @@ using System.IO.Compression;
 using Microsoft.Extensions.Options;
 using Synology.Photos.Slideshow.Api.Configuration;
 
-namespace Synology.Photos.Slideshow.Api.Slideshow.DownloadPhotos.Services;
+namespace Synology.Photos.Slideshow.Api.Slideshow.Services;
 
 /// <summary>
 /// Provides functionality for file processing operations.

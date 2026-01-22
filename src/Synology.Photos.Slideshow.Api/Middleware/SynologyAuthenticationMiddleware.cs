@@ -4,7 +4,7 @@ using Synology.Api.Sdk.SynologyApi;
 using Synology.Api.Sdk.SynologyApi.Auth.Request;
 using Synology.Api.Sdk.SynologyApi.Auth.Response;
 using Synology.Photos.Slideshow.Api.Configuration;
-using Synology.Photos.Slideshow.Api.Slideshow.Common;
+using Synology.Photos.Slideshow.Api.Slideshow.Providers;
 
 namespace Synology.Photos.Slideshow.Api.Middleware;
 

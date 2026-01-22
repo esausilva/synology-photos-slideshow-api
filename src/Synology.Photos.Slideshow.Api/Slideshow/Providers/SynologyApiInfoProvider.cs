@@ -3,7 +3,7 @@ using Synology.Api.Sdk.SynologyApi;
 using Synology.Api.Sdk.SynologyApi.ApiInfo.Request;
 using Synology.Api.Sdk.SynologyApi.ApiInfo.Response;
 
-namespace Synology.Photos.Slideshow.Api.Slideshow.Common;
+namespace Synology.Photos.Slideshow.Api.Slideshow.Providers;
 
 public sealed class SynologyApiInfoProvider : ISynologyApiInfoProvider
 {

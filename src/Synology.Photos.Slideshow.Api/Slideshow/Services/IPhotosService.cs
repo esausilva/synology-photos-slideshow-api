@@ -1,4 +1,4 @@
-namespace Synology.Photos.Slideshow.Api.Slideshow.Web.Services;
+namespace Synology.Photos.Slideshow.Api.Slideshow.Services;
 
 public interface IPhotosService
 {

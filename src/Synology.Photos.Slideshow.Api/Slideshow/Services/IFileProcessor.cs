@@ -1,4 +1,4 @@
-namespace Synology.Photos.Slideshow.Api.Slideshow.DownloadPhotos.Services;
+namespace Synology.Photos.Slideshow.Api.Slideshow.Services;
 
 public interface IFileProcessor
 {

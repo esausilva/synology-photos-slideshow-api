@@ -1,8 +1,7 @@
 using Synology.Photos.Slideshow.Api.Configuration;
 using Synology.Photos.Slideshow.Api.Slideshow.Auth;
-using Synology.Photos.Slideshow.Api.Slideshow.Common;
-using Synology.Photos.Slideshow.Api.Slideshow.DownloadPhotos.Services;
-using Synology.Photos.Slideshow.Api.Slideshow.Web.Services;
+using Synology.Photos.Slideshow.Api.Slideshow.Providers;
+using Synology.Photos.Slideshow.Api.Slideshow.Services;
 
 namespace Synology.Photos.Slideshow.Api.Extensions;
 

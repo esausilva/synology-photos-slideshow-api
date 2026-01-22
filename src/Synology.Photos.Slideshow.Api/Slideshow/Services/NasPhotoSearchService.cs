@@ -6,9 +6,9 @@ using Synology.Api.Sdk.SynologyApi.FileStation.Request;
 using Synology.Api.Sdk.SynologyApi.FileStation.Response;
 using Synology.Photos.Slideshow.Api.Configuration;
 using Synology.Photos.Slideshow.Api.Slideshow.Auth;
-using Synology.Photos.Slideshow.Api.Slideshow.Common;
+using Synology.Photos.Slideshow.Api.Slideshow.Providers;
 
-namespace Synology.Photos.Slideshow.Api.Slideshow.DownloadPhotos.Services;
+namespace Synology.Photos.Slideshow.Api.Slideshow.Services;
 
 /// <summary>
 /// Provides functionality to search and retrieve photos from a Synology NAS.

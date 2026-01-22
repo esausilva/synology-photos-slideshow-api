@@ -1,6 +1,6 @@
-using Synology.Photos.Slideshow.Api.Slideshow.DownloadPhotos.Services;
+using Synology.Photos.Slideshow.Api.Slideshow.Services;
 
-namespace Synology.Photos.Slideshow.Api.Slideshow.DownloadPhotos.Endpoints;
+namespace Synology.Photos.Slideshow.Api.Slideshow.Endpoints;
 
 public static class DownloadPhotos
 {

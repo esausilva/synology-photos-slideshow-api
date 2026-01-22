@@ -2,7 +2,7 @@ using Microsoft.Extensions.Options;
 using Synology.Photos.Slideshow.Api.Configuration;
 using Synology.Photos.Slideshow.Api.Constants;
 
-namespace Synology.Photos.Slideshow.Api.Slideshow.Web.Services;
+namespace Synology.Photos.Slideshow.Api.Slideshow.Services;
 
 public sealed class PhotosService : IPhotosService
 {
