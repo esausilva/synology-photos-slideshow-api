@@ -310,22 +310,23 @@ This will make the IP predictable and not change every time your NAS restarts, o
 
 ## Future Enhancements
 
-The API is pretty much an MVP. I would like to add the following features (in no particular order):
+I would like to add the following features (in no particular order):
 
-- Scheduled jobs to download a new set of photos in the background, configurable to run every X number of days. This is because the current process is to manually call the download endpoint, and I'd like to automate this process to run once a week.
-- Have SignalR to notify the client when a new set of photos is available. A predecessor to this is to have the background job feature mentioned above completed.
-- Have a "permanent photos" folder that will not be cleaned by the `Download Photos` endpoint. This is to allow me to upload photos manually from my phone or computer and have them be available to the slideshow application. Say we recently took a trip and I want to display photos from that trip alongside the randomly selected photos. These photos will be available until manual deletion.
-  - For this to work, the volume mapping to `/app/slides` is required, so I have access to the slides folder from the NAS device and use Synology Files on my phone to upload the photos, or DSM from the computer browser.
-- A delete endpoint to remove photos from the slideshow. Note that this will only delete the photos from the slideshow (`SynoApiOptions:DownloadAbsolutePath`), not the actual photos on the NAS device. 
-- Refactor the `Get Photo URLs` endpoint to return metadata about the photos. To include the photo's date taken and the photo's location.
-  - This is to display an overlay on each photo with the date and location. Possibly a link to Google Maps with the location.
-- A "blacklist" endpoint to prevent certain photos from ever being displayed. Say, you see a photo in the slideshow that you don't want to display, ever. The endpoint would delete and add it to the blacklist, so it will not be downloaded again.
-- Allow the user to configure the number of photos to download from the client app.
-- What else? Will see...
+| Feature                     | Description                                                                                                                                     | Status |
+| :-------------------------- |:------------------------------------------------------------------------------------------------------------------------------------------------| :----- |
+| **Scheduled Jobs**          | Automates downloading new photo sets in the background at set intervals.                                                                        |        |
+| **Real-time Notifications** | Uses SignalR or SSE to notify the client when new photos are available. A predecessor to this is to have the background job feature completed.  |        |
+| **Permanent Folder**        | A dedicated folder for specific photos (e.g., recent trips) that bypasses the auto-clean process.                                               |        |
+| **Delete Endpoint**         | Allows removing specific photos from the slideshow cache without deleting the original NAS files.                                               | ✅     |
+| **Metadata Refactoring**    | Updates endpoints to include photo date, location, and mapping data.                                                                            |        |
+| **Blacklist System**        | An endpoint to permanently prevent specific photos from appearing in the slideshow.                                                             |        |
+| **Download Configuration**  | Enables the client application to define how many photos are fetched.                                                                           |        |
+
+What else? Will see...
 
 ## Client App
 
-The web client app MVP is now available at: 
+The web client app is now available at: 
 
 Synology Photos Slideshow Client
 [https://github.com/esausilva/synology-photos-slideshow-client](https://github.com/esausilva/synology-photos-slideshow-client)
