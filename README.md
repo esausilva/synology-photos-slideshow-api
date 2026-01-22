@@ -15,6 +15,7 @@ Table of Contents:
   - [Endpoints](#endpoints)
     - [Download Photos](#download-photos)
     - [Get Photo URLs](#get-photo-urls)
+    - [Bulk Delete Photos](#bulk-delete-photos)
   - [Logging](#logging)
   - [Local Development](#local-development)
   - [Local Testing with Docker](#local-testing-with-docker)
