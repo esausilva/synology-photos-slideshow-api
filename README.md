@@ -38,7 +38,7 @@ The base URL is `http://<your-nas-ip>:5097`. When running the API for local deve
 ### Download Photos
 
 ```text
-/download-photos
+GET /photos/download
 ```
 
 This endpoint randomly selects and downloads photos from a specified folder(s) on your Synology NAS device. The downloads are placed in a specified folder where the API has access to.
@@ -80,7 +80,7 @@ An example of the error response:
 ### Get Photo URLs
 
 ```text
-/get-photo-urls
+GET /photos/relative-urls
 ```
 
 This endpoint returns a list of photo URLs that can be used in a client slideshow application.
@@ -90,7 +90,7 @@ It will return the photos previously downloaded by the `Download Photos` endpoin
 #### Response Codes
 
 - 200: Success
-- 500: Error. Any unexpected errors. _See the previous endpoint for an example._
+- 500: Error. Any unexpected errors. _Refer to the previous example._
 
 An example of the success response:
 
@@ -108,6 +108,51 @@ To form the full URL in the client application, you would need to concatenate th
 
 ```text
 http://<your-nas-ip>:5097/slideshow/20240618_141316.jpg
+```
+
+### Bulk Delete Photos
+
+```text
+POST /photos/bulk-delete
+```
+
+This endpoint deletes photos from the slideshow folder. 
+
+Accepts the list of photo names to delete.
+
+Payload example:
+
+```js
+[
+  "20240303_154856.jpg",
+  "20240818_154700.jpg",
+  "20250403_080106.jpg"
+]
+```
+
+The endpoint will attempt to delete all the photos in the payload list and return the list of photos that were not found. In case where all the photos were not found, it will return a `404 Not Found` error.
+
+#### Response Codes
+
+- 200: Success. Will return the list of photos that were not found. Or an empty list if all photos were found.
+- 404: Not Found. This is return if all photos were not found.
+- 500: Error. Any unexpected errors. _Refer to the previous example._
+
+An example of the success response:
+
+```json
+{
+  "unmatchedPhotos": [
+    "20240818_154700.jpg",
+    "20250403_080106.jpg"
+  ]
+}
+```
+
+```json
+{
+  "unmatchedPhotos": []
+}
 ```
 
 ## Logging
