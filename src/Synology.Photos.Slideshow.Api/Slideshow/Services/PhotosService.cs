@@ -25,11 +25,16 @@ public sealed class PhotosService : IPhotosService
     /// <returns></returns>
     public async Task<IReadOnlyList<string>> GetPhotoRelativeUrls(CancellationToken cancellationToken)
     {
+        // Synology creates thumbnails in a directory named "@eaDir" when looking at the photos via 'DS File'
+        const string thumbnailDir = "@eaDir";
+        
         var rootPath = _synoApiOptions.CurrentValue.DownloadAbsolutePath;
 
         var urls = await Task.Run(() =>
         {
             var photoRelativeUrls = Directory.EnumerateFiles(rootPath, "*", SearchOption.AllDirectories)
+                .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}{thumbnailDir}{Path.DirectorySeparatorChar}") && 
+                            !f.Contains($"{Path.DirectorySeparatorChar}{thumbnailDir}"))
                 .Where(f => ImageExtensions.Contains(Path.GetExtension(f)))
                 .Select(f =>
                 {
