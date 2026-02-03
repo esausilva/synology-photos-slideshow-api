@@ -7,12 +7,12 @@ namespace Synology.Photos.Slideshow.Api.Slideshow.Services;
 /// <summary>
 /// Provides functionality for file processing operations.
 /// </summary>
-public sealed class FileProcessor : IFileProcessor
+public sealed partial class FileProcessor : IFileProcessor
 {
     private readonly IOptionsMonitor<SynoApiOptions> _synoApiOptions;
     private readonly ILogger<FileProcessor> _logger;
 
-    public FileProcessor(IOptionsMonitor<SynoApiOptions> synoApiOptions, ILogger<FileProcessor>  logger)
+    public FileProcessor(IOptionsMonitor<SynoApiOptions> synoApiOptions, ILogger<FileProcessor> logger)
     {
         _synoApiOptions = synoApiOptions ?? throw new ArgumentNullException(nameof(synoApiOptions));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -32,7 +32,7 @@ public sealed class FileProcessor : IFileProcessor
             return;
         }
 
-        _logger.LogInformation("Cleaning directory '{RootPath}'", rootPath);
+        LogCleaningDirectoryRootPath(rootPath);
 
         await Task.Run(() =>
         {
@@ -47,8 +47,8 @@ public sealed class FileProcessor : IFileProcessor
             {
                 Directory.Delete(dir, true);
             }
-            
-            _logger.LogInformation("Directory '{RootPath}' cleaned", rootPath);
+
+            LogDirectoryRootPathCleaned(rootPath);
         }, cancellationToken);
     }
 
@@ -59,8 +59,8 @@ public sealed class FileProcessor : IFileProcessor
     public async Task ProcessZipFile(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Processing zip file");
-        
-        var zipPath = Path.Combine(_synoApiOptions.CurrentValue.DownloadAbsolutePath, 
+
+        var zipPath = Path.Combine(_synoApiOptions.CurrentValue.DownloadAbsolutePath,
             _synoApiOptions.CurrentValue.DownloadFileName);
         var extractPath = _synoApiOptions.CurrentValue.DownloadAbsolutePath;
 
@@ -73,10 +73,10 @@ public sealed class FileProcessor : IFileProcessor
         await UnzipPhotos(zipPath, extractPath, cancellationToken);
         await CleanupZipFile(zipPath, cancellationToken);
         await FlattenDirectory(extractPath, cancellationToken);
-        
+
         _logger.LogInformation("Finished processing zip file");
     }
-    
+
     /// <summary>
     /// Deletes a photo from the local file system.
     /// </summary>
@@ -85,19 +85,19 @@ public sealed class FileProcessor : IFileProcessor
     public async Task DeletePhotoAsync(IList<string> photosToDelete, CancellationToken cancellationToken)
     {
         var rootPath = _synoApiOptions.CurrentValue.DownloadAbsolutePath;
-        
+
         if (!Directory.Exists(rootPath))
         {
             _logger.LogWarning("Directory '{RootPath}' does not exist", rootPath);
             return;
         }
-        
+
         await Task.Run(() =>
         {
             foreach (var currentPhoto in photosToDelete)
             {
-                _logger.LogInformation("Deleting photo with name '{name}'", currentPhoto);
-                
+                LogDeletingPhotoWithNameName(currentPhoto);
+
                 var photoPath = Path.Combine(rootPath, currentPhoto);
                 File.Delete(photoPath);
             }
@@ -106,28 +106,25 @@ public sealed class FileProcessor : IFileProcessor
 
     private static async Task UnzipPhotos(string zipPath, string extractPath, CancellationToken cancellationToken)
     {
-        await Task.Run(() =>
-        {
-            ZipFile.ExtractToDirectory(zipPath, extractPath, true);
-        }, cancellationToken);
+        await ZipFile.ExtractToDirectoryAsync(zipPath, extractPath, true, cancellationToken);
     }
 
     private static async Task FlattenDirectory(string rootPath, CancellationToken cancellationToken)
     {
         const string macOsMetadataFile = ".DS_Store";
-        
+
         await Task.Run(() =>
         {
             var files = Directory.GetFiles(rootPath, "*.*", SearchOption.AllDirectories);
-            
+
             foreach (var file in files)
             {
                 if (file == Path.GetDirectoryName(file)) continue;
 
                 var fileName = Path.GetFileName(file);
                 var destinationPath = Path.Combine(rootPath, fileName);
-                
-                if (fileName.Equals(macOsMetadataFile, StringComparison.OrdinalIgnoreCase)) 
+
+                if (fileName.Equals(macOsMetadataFile, StringComparison.OrdinalIgnoreCase))
                     continue;
 
                 if (File.Exists(destinationPath))
@@ -165,4 +162,13 @@ public sealed class FileProcessor : IFileProcessor
             }
         }, cancellationToken);
     }
+
+    [LoggerMessage(LogLevel.Information, "Cleaning directory '{RootPath}'")]
+    partial void LogCleaningDirectoryRootPath(string rootPath);
+
+    [LoggerMessage(LogLevel.Information, "Directory '{RootPath}' cleaned")]
+    partial void LogDirectoryRootPathCleaned(string rootPath);
+
+    [LoggerMessage(LogLevel.Information, "Deleting photo with name '{name}'")]
+    partial void LogDeletingPhotoWithNameName(string name);
 }
