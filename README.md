@@ -14,7 +14,7 @@ Table of Contents:
 
   - [Endpoints](#endpoints)
     - [Download Photos](#download-photos)
-    - [Get Photo URLs](#get-photo-urls)
+    - [Get Photo Slides](#get-photo-slides)
     - [Bulk Delete Photos](#bulk-delete-photos)
   - [Logging](#logging)
   - [Local Development](#local-development)
@@ -42,13 +42,17 @@ The base URL is `http://<your-nas-ip>:5097`. When running the API for local deve
 GET /photos/download
 ```
 
-This endpoint randomly selects and downloads photos from a specified folder(s) on your Synology NAS device. The downloads are placed in a specified folder where the API has access to.
+This endpoint randomly selects, downloads, and converts the downloaded photos to WebP format.
 
-Every time this endpoint is called, it will download a new set of photos and replace the old ones. 
+The photos are taken from a configured folder(s) on your Synology NAS device, these downloads are then placed in a configured folder where the API has access to.
+
+Every time this endpoint is called, it will clean the old ones and download a new set of photos.
 
 See "[Local Development](#local-development)", "[Local Testing with Docker](#local-testing-with-docker)", and "[Deployment](#deployment-to-your-synology-nas-device)" for more information on configuration.
 
-Note: There is an issue with the number of photos to download. It seems to be limited to 79; however, this number limit works for now. I will look into this later and try to figure this out.
+**Note 1:** There is an issue with the number of photos to download. It seems to be limited to 79; however, this number limit works for now. I will look into this later and try to figure this out.
+
+**Note 2:** This is a process-intensive endpoint as it searches the Synology NAS, downloads the photos, processes them into a flattened hierarchy, and then converts them to WebP format. I will break these up later into background services after implementing client real-time notifications.
 
 #### Response Codes
 
@@ -78,15 +82,20 @@ An example of the error response:
 }
 ```
 
-### Get Photo URLs
+### Get Photo Slides
 
 ```text
-GET /photos/relative-urls
+GET /photos/slides
 ```
 
-This endpoint returns a list of photo URLs that can be used in a client slideshow application.
+This endpoint returns a collection of slides with info about the photos previously downloaded by the `Download Photos` endpoint with the following properties:
 
-It will return the photos previously downloaded by the `Download Photos` endpoint.
+- `relativeUrl`: Can be used in a client slideshow application to get the full URL of the photo.
+- `dateTaken`: The date the photo was taken.
+  - This value can be empty if the photo does not have a date taken metadata.
+  - If there is no date time offset in the photo metadata, it will return as unspecified.
+- `googleMapsLink`: A link to the photo location on Google Maps.
+  - This value can be empty if the photo does not have GPS metadata.
 
 #### Response Codes
 
@@ -97,15 +106,25 @@ An example of the success response:
 
 ```json
 [
-  "/slideshow/20230921_163859.jpg",
-  "/slideshow/20231211_165956.jpg",
-  "/slideshow/20231231_195740.jpg",
-  "/slideshow/20240317_165238.jpg",
-  "/slideshow/20240618_141316.jpg"
+  {
+    "relativeUrl": "/slideshow/20250724_200733.webp",
+    "dateTaken": "2025-07-24 20:07:33 -07:00",
+    "googleMapsLink": "https://www.google.com/maps?q=36.423593499999996,-118.91434909972223"
+  },
+  {
+    "relativeUrl": "/slideshow/IMG_20200323_083612.webp",
+    "dateTaken": "2020-03-23 08:36:12 -05:00",
+    "googleMapsLink": ""
+  },
+  {
+    "relativeUrl": "/slideshow/IMG_20201122_194525.webp",
+    "dateTaken": "2020-11-22 19:45:25 -06:00",
+    "googleMapsLink": ""
+  }
 ]
 ```
 
-To form the full URL in the client application, you would need to concatenate the base URL with the photo URL.
+To form the full URL in the client application, you would need to concatenate the base URL with the photo relative URL.
 
 ```text
 http://<your-nas-ip>:5097/slideshow/20240618_141316.jpg
@@ -275,7 +294,7 @@ Right-click on the image and select "Download this image".
 
 ![Registry Search](./resources/registry-search.jpg "Registry Search")
 
-Once the image is downloaded, you can create a container from it by going to the "Image" tab, then right-clicking on the image and selecting "Run".
+Once the image is downloaded, you can create a container from it by going to the "Image" tab, then right-clicking on the image, and selecting "Run".
 
 ![Synology Photos Slideshow API Docker Image](./resources/synology-photo-slideshow-api-docker-image.jpg "Synology Photos Slideshow API Docker Image")
 
@@ -313,12 +332,12 @@ This will make the IP predictable and not change every time your NAS restarts, o
 I would like to add the following features (in no particular order):
 
 | Feature                     | Description                                                                                                                                     | Status |
-| :-------------------------- |:------------------------------------------------------------------------------------------------------------------------------------------------| :----- |
+| :-------------------------- |:------------------------------------------------------------------------------------------------------------------------------------------------|:-------|
 | **Scheduled Jobs**          | Automates downloading new photo sets in the background at set intervals.                                                                        |        |
 | **Real-time Notifications** | Uses SignalR or SSE to notify the client when new photos are available. A predecessor to this is to have the background job feature completed.  |        |
 | **Permanent Folder**        | A dedicated folder for specific photos (e.g., recent trips) that bypasses the auto-clean process.                                               |        |
-| **Delete Endpoint**         | Allows removing specific photos from the slideshow cache without deleting the original NAS files.                                               | ✅     |
-| **Metadata Refactoring**    | Updates endpoints to include photo date, location, and mapping data.                                                                            |        |
+| **Delete Endpoint**         | Allows removing specific photos from the slideshow cache without deleting the original NAS files.                                               | ✅      |
+| **Metadata Refactoring**    | Updates endpoints to include photo date, location, and mapping data.                                                                            | ⏳       |
 | **Blacklist System**        | An endpoint to permanently prevent specific photos from appearing in the slideshow.                                                             |        |
 | **Download Configuration**  | Enables the client application to define how many photos are fetched.                                                                           |        |
 

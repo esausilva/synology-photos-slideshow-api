@@ -5,8 +5,9 @@ namespace Synology.Photos.Slideshow.Api.Slideshow.Endpoints;
 public static class DownloadPhotos
 {
     /*
-     * NOTE: This is a process-intensive endpoint. I will break it up into background services later
-     * after implementing real-time client notifications.
+     * NOTE: This is a process-intensive endpoint as it searches the Synology NAS, downloads the photos,
+     * processes them into a flattened hierarchy, and then converts them to WebP format. I will break
+     * these up later into background services after implementing client real-time notifications.
      */
     public static async Task<IResult> GetAsync(
         HttpContext context,

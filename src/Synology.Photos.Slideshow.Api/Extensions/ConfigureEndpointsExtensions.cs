@@ -21,7 +21,7 @@ public static class ConfigureEndpointsExtensions
                 .WithName("DownloadPhotos")
                 .Produces<IList<string>>();
 
-            group.MapGet("relative-urls", Slides.GetAsync)
+            group.MapGet("slides", Slides.GetAsync)
                 .WithName("GetPhotoUrls")
                 .Produces<IList<string>>();
             
