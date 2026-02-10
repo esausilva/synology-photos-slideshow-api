@@ -14,6 +14,8 @@ namespace Synology.Photos.Slideshow.Api.Slideshow.Services;
 public sealed partial class PhotosService : IPhotosService
 {
     private readonly string _rootPath;
+    private readonly bool _isGeolocationEnabled;
+    private readonly ILocationService _locationService;
     private readonly ILogger<PhotosService> _logger;
 
     // Synology creates thumbnails in a directory named "@eaDir" when accessing the photos via 'DS File'
@@ -29,9 +31,15 @@ public sealed partial class PhotosService : IPhotosService
         ".jpg", ".jpeg", ".png", ".bmp", ".tiff"
     };
 
-    public PhotosService(IOptionsMonitor<SynoApiOptions> synoApiOptions, ILogger<PhotosService> logger)
+    public PhotosService(
+        IOptionsMonitor<SynoApiOptions> synoApiOptions, 
+        IOptionsMonitor<ThirdPartyServices> thirdPartyServices,
+        ILocationService locationService,
+        ILogger<PhotosService> logger)
     {
         _rootPath = synoApiOptions.CurrentValue.DownloadAbsolutePath;
+        _isGeolocationEnabled = thirdPartyServices.CurrentValue.EnableGeolocation;
+        _locationService = locationService;
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -107,26 +115,41 @@ public sealed partial class PhotosService : IPhotosService
     private static (int scaledWidth, int scaledHeight) ScaleImageDimensions(Image image, double scale) =>
         ((int)(image.Width * scale), (int)(image.Height * scale));
 
+    /// <summary>
+    /// Creates image slide information by analyzing the provided image file.
+    /// Extracts metadata such as the relative URL, date taken, location, and geolocation details.
+    /// </summary>
+    /// <param name="filePath">The file path of the image to process.</param>
+    /// <param name="cancellationToken">The cancellation token used to cancel the operation.</param>
+    /// <returns>A task representing the asynchronous operation, containing the slide information for the specified image.</returns>
     private async Task<SlidesResponse> CreateImageSlideInfo(string filePath, CancellationToken cancellationToken)
     {
         var fileName = Path.GetRelativePath(_rootPath, filePath);
         var url = $"{SlideshowConstants.BaseRoute}/{fileName.Replace(Path.DirectorySeparatorChar, '/')}";
         var imageInfo = await Image.IdentifyAsync(filePath, cancellationToken);
         var exifProfile = imageInfo.Metadata.ExifProfile;
-        var dateTaken = string.Empty;
-        var googleMapsLink = string.Empty;
 
         if (exifProfile is null)
-            return new SlidesResponse(url, dateTaken, googleMapsLink);
+            return new SlidesResponse(url, "", "", "");
 
         var photoDateTime = GetPhotoDateTimeWithOffset(exifProfile);
+        var dateTaken = photoDateTime?.ToString("yyyy-MM-dd HH:mm:ss zzz") ?? string.Empty;
+        var (latitude, longitude) = GetLatitudeAndLongitude(exifProfile);
+        var googleMapsLink = GetGoogleMapsLink(latitude, longitude);
+        var location = await GetLocation(latitude, longitude);
 
-        dateTaken = photoDateTime?.ToString("yyyy-MM-dd HH:mm:ss zzz") ?? string.Empty;
-        googleMapsLink = GetGoogleMapsLink(exifProfile);
-
-        return new SlidesResponse(url, dateTaken, googleMapsLink);
+        return new SlidesResponse(url, dateTaken, googleMapsLink, location);
     }
 
+    /// <summary>
+    /// Extracts the date and time information from the Exif metadata of a photo,
+    /// including the time zone offset if available.
+    /// </summary>
+    /// <param name="exifProfile">The Exif metadata profile of the photo.</param>
+    /// <returns>
+    /// The date and time as a <see cref="DateTimeOffset"/> object if successfully extracted;
+    /// otherwise, null.
+    /// </returns>
     private static DateTimeOffset? GetPhotoDateTimeWithOffset(ExifProfile exifProfile)
     {
         if (!exifProfile.TryGetValue(ExifTag.DateTimeOriginal, out var dateTimeValue))
@@ -154,7 +177,13 @@ public sealed partial class PhotosService : IPhotosService
         return new DateTimeOffset(dateTime);
     }
 
-    private static string GetGoogleMapsLink(ExifProfile profile)
+    /// <summary>
+    /// Extracts latitude and longitude values from the GPS metadata of an EXIF profile.
+    /// </summary>
+    /// <param name="profile">The EXIF profile containing GPS data.</param>
+    /// <returns>A tuple containing the latitude and longitude as nullable double values. Returns null for both
+    /// values if the GPS data is incomplete or unavailable.</returns>
+    private static (double? latitude, double? longitude) GetLatitudeAndLongitude(ExifProfile profile)
     {
         profile.TryGetValue(ExifTag.GPSLatitude, out var latValues);
         profile.TryGetValue(ExifTag.GPSLatitudeRef, out var latRef);
@@ -162,22 +191,56 @@ public sealed partial class PhotosService : IPhotosService
         profile.TryGetValue(ExifTag.GPSLongitudeRef, out var lonRef);
 
         if (latValues is null || latRef is null || lonValues is null || lonRef is null)
-            return string.Empty;
+            return (null, null);
 
         // Validate that we have all required parts (Degrees, Minutes, Seconds)
         if (latValues.Value is not [var latD, var latM, var latS] ||
             lonValues.Value is not [var lonD, var lonM, var lonS] ||
             string.IsNullOrEmpty(latRef.Value) || string.IsNullOrEmpty(lonRef.Value))
         {
-            return string.Empty;
+            return (null, null);
         }
 
         var latitude = ToDecimalDegrees(latD, latM, latS, latRef.Value);
         var longitude = ToDecimalDegrees(lonD, lonM, lonS, lonRef.Value);
 
-        return $"https://www.google.com/maps?q={latitude},{longitude}";
+        return (latitude, longitude);
+    }
+    
+    private static string GetGoogleMapsLink(double? latitude, double? longitude) => 
+        latitude is not null && longitude is not null 
+        ? $"https://www.google.com/maps?q={latitude},{longitude}"
+        : string.Empty;
+
+    /// <summary>
+    /// Retrieves the location name based on the provided latitude and longitude values.
+    /// If geolocation is disabled or the coordinates are null, an empty string is returned.
+    /// </summary>
+    /// <param name="latitude">The latitude coordinate of the location.</param>
+    /// <param name="longitude">The longitude coordinate of the location.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains the location name
+    /// as a string, or an empty string if the location could not be obtained.</returns>
+    private async Task<string> GetLocation(double? latitude, double? longitude)
+    {
+        var shouldGetLocation = _isGeolocationEnabled && latitude is not null && longitude is not null;
+        
+        return shouldGetLocation
+            ? await _locationService.GetLocation(latitude!.Value, longitude!.Value)
+            : string.Empty;
     }
 
+    /// <summary>
+    /// Converts latitude or longitude values from degrees, minutes, and seconds format to decimal degrees.
+    /// Accounts for directional indicators (N, S, E, W) to set the sign of the resulting value.
+    /// </summary>
+    /// <param name="degrees">The degree component of the coordinate.</param>
+    /// <param name="minutes">The minute component of the coordinate.</param>
+    /// <param name="seconds">The second component of the coordinate.</param>
+    /// <param name="direction">
+    /// The directional indicator for the coordinate. Expected values are "N", "S", "E", or "W".
+    /// "N" and "E" result in positive values, while "S" and "W" result in negative values.
+    /// </param>
+    /// <returns>The coordinate value converted to decimal degrees.</returns>
     private static double ToDecimalDegrees(Rational degrees, Rational minutes, Rational seconds, string direction)
     {
         var decimalDegrees = degrees.ToDouble() + (minutes.ToDouble() / 60.0) + (seconds.ToDouble() / 3600.0);
