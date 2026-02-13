@@ -1,8 +1,10 @@
+using Microsoft.Extensions.Caching.Hybrid;
 using Synology.Photos.Slideshow.Api.Configuration;
 using Synology.Photos.Slideshow.Api.Constants;
 using Synology.Photos.Slideshow.Api.Slideshow.Auth;
 using Synology.Photos.Slideshow.Api.Slideshow.Providers;
 using Synology.Photos.Slideshow.Api.Slideshow.Services;
+using Synology.Photos.Slideshow.Api.Slideshow.Services.Mocks;
 
 namespace Synology.Photos.Slideshow.Api.Extensions;
 
@@ -18,6 +20,17 @@ public static class ConfigurationExtensions
             services
                 .AddHttpClient(SlideshowConstants.GeolocationHttpClient)
                 .AddStandardResilienceHandler();
+            
+            services.AddHybridCache(options =>
+            {
+                var cacheDuration = TimeSpan.FromDays(7);
+                
+                options.DefaultEntryOptions = new HybridCacheEntryOptions
+                {
+                    Expiration = cacheDuration,
+                    LocalCacheExpiration = cacheDuration
+                };
+            });
         
             services.AddScoped<ISynologyAuthenticationContext, SynologyAuthenticationContext>();
             services.AddSingleton<ISynologyApiInfoProvider, SynologyApiInfoProvider>();
@@ -25,8 +38,8 @@ public static class ConfigurationExtensions
             services.AddTransient<IFileStation, FileStation>();
             services.AddTransient<IFileProcessor, FileProcessor>();
             services.AddTransient<IPhotosService, PhotosService>();
-            services.AddTransient<ILocationService, GoogleLocationService>();
-  
+            services.ConfigureLocationService(configuration);
+            
             return services;
         }
 
@@ -51,6 +64,22 @@ public static class ConfigurationExtensions
                 .AddOptionsWithValidateOnStart<GoogleMapsOptions>()
                 .ValidateDataAnnotations()
                 .Bind(configuration.GetSection(nameof(GoogleMapsOptions)));
+        }
+        
+        private void ConfigureLocationService(ConfigurationManager configuration)
+        {
+#if DEBUG
+            var googleMapsOptions = configuration
+                .GetSection(nameof(GoogleMapsOptions))
+                .Get<GoogleMapsOptions>();
+
+            if (googleMapsOptions?.EnableMocks is true)
+                services.AddTransient<ILocationService, GoogleLocationServiceMock>();
+            else
+                services.AddTransient<ILocationService, GoogleLocationService>();
+#else
+            services.AddTransient<ILocationService, GoogleLocationService>();
+#endif
         }
     }
 }

@@ -94,7 +94,7 @@ public sealed partial class PhotosService : IPhotosService
     /// </summary>
     /// <param name="cancellationToken">The cancellation token used to cancel the operation.</param>
     /// <returns>A task returning a read-only list of <see cref="SlidesResponse"/> objects containing photo metadata.</returns>
-    public async Task<IReadOnlyList<SlidesResponse>> GetPhotoRelativeUrls(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<SlidesResponse>> GetSlides(CancellationToken cancellationToken)
     {
         var slides = await Task.Run(() =>
         {
@@ -136,7 +136,7 @@ public sealed partial class PhotosService : IPhotosService
         var dateTaken = photoDateTime?.ToString("yyyy-MM-dd HH:mm:ss zzz") ?? string.Empty;
         var (latitude, longitude) = GetLatitudeAndLongitude(exifProfile);
         var googleMapsLink = GetGoogleMapsLink(latitude, longitude);
-        var location = await GetLocation(latitude, longitude);
+        var location = await GetLocation(latitude, longitude, cancellationToken);
 
         return new SlidesResponse(url, dateTaken, googleMapsLink, location);
     }
@@ -218,14 +218,15 @@ public sealed partial class PhotosService : IPhotosService
     /// </summary>
     /// <param name="latitude">The latitude coordinate of the location.</param>
     /// <param name="longitude">The longitude coordinate of the location.</param>
+    /// <param name="cancellationToken"></param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the location name
     /// as a string, or an empty string if the location could not be obtained.</returns>
-    private async Task<string> GetLocation(double? latitude, double? longitude)
+    private async Task<string> GetLocation(double? latitude, double? longitude, CancellationToken cancellationToken)
     {
         var shouldGetLocation = _isGeolocationEnabled && latitude is not null && longitude is not null;
         
         return shouldGetLocation
-            ? await _locationService.GetLocation(latitude!.Value, longitude!.Value)
+            ? await _locationService.GetLocation(latitude!.Value, longitude!.Value, cancellationToken)
             : string.Empty;
     }
 

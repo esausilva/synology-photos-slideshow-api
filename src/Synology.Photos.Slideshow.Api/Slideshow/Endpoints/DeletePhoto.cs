@@ -10,7 +10,7 @@ public static class DeletePhoto
         IFileProcessor fileProcessor,
         CancellationToken cancellationToken)
     {
-        var slides = await photosService.GetPhotoRelativeUrls(cancellationToken);
+        var slides = await photosService.GetSlides(cancellationToken);
         var unmatchedPhotos = 
             (from currentPhoto in request 
                 let photoExists = slides.Any(s => s.RelativeUrl.Contains(currentPhoto, StringComparison.OrdinalIgnoreCase)) 

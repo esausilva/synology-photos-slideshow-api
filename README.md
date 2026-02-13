@@ -96,6 +96,9 @@ This endpoint returns a collection of slides with info about the photos previous
   - If there is no date time offset in the photo metadata, it will return as unspecified.
 - `googleMapsLink`: A link to the photo location on Google Maps.
   - This value can be empty if the photo does not have GPS metadata.
+- `location`: The photo location in the following format: _City, State_.
+  - This value can be empty if the photo does not have GPS metadata.
+  - I implement **Google Maps API** to get the location from the photo metadata, which is opt-in and disabled by default. So the API will return empty if not enabled. See "[Photo Location](./docs/photo-location.md)" for more information.
 
 #### Response Codes
 
@@ -109,17 +112,20 @@ An example of the success response:
   {
     "relativeUrl": "/slideshow/20250724_200733.webp",
     "dateTaken": "2025-07-24 20:07:33 -07:00",
-    "googleMapsLink": "https://www.google.com/maps?q=36.423593499999996,-118.91434909972223"
+    "googleMapsLink": "https://www.google.com/maps?q=36.423593499999996,-118.91434909972223",
+    "location": "Nashville, TN"
   },
   {
     "relativeUrl": "/slideshow/IMG_20200323_083612.webp",
     "dateTaken": "2020-03-23 08:36:12 -05:00",
-    "googleMapsLink": ""
+    "googleMapsLink": "",
+    "location": ""
   },
   {
     "relativeUrl": "/slideshow/IMG_20201122_194525.webp",
     "dateTaken": "2020-11-22 19:45:25 -06:00",
-    "googleMapsLink": ""
+    "googleMapsLink": "",
+    "location": ""
   }
 ]
 ```
@@ -321,7 +327,7 @@ The environment variables will be as follows:
 | SynoApiOptions:NumberOfPhotoDownloads     | 79                               |
 | SynoApiOptions:DownloadAbsolutePath       | /app/slides                      |
 
-## Important !!!!!!!
+## Important!!!!!!!
 
 I highly suggest you create a DHCP reservation in your router for the IP address of your Synology NAS device.
 
