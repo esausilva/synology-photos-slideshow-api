@@ -56,9 +56,11 @@ See "[Local Development](#local-development)", "[Local Testing with Docker](#loc
 
 #### Response Codes
 
-- 204: Success
-- 503: Error. This is returned if the API is unable to download photos due to issues with the official Synology API. i.e., timeouts.
-- 500: Error. Any other unexpected errors.
+| Status Code | Description                                                                                                                   |
+| :---------- | :---------------------------------------------------------------------------------------------------------------------------- |
+| `204`       | Success                                                                                                                       |
+| `503`       | Error. This is returned if the API is unable to download photos due to issues with the official Synology API. i.e., timeouts. |
+| `500`       | Error. Any other unexpected errors.                                                                                           |
 
 An example of the error response:
 
@@ -102,8 +104,10 @@ This endpoint returns a collection of slides with info about the photos previous
 
 #### Response Codes
 
-- 200: Success
-- 500: Error. Any unexpected errors. _Refer to the previous example._
+| Status Code | Description                                                    |
+| :---------- | :------------------------------------------------------------- |
+| `200`       | Success                                                        |
+| `500`       | Error. Any unexpected errors. _Refer to the previous example._ |
 
 An example of the success response:
 
@@ -160,9 +164,11 @@ The endpoint will attempt to delete all the photos in the payload list and retur
 
 #### Response Codes
 
-- 200: Success. Will return the list of photos that were not found. Or an empty list if all photos were found.
-- 404: Not Found. This is return if all photos were not found.
-- 500: Error. Any unexpected errors. _Refer to the previous example._
+| Status Code | Description                                                                                             |
+| :---------- | :------------------------------------------------------------------------------------------------------ |
+| `200`       | Success. Will return the list of photos that were not found. Or an empty list if all photos were found. |
+| `404`       | Not Found. This is return if all photos were not found.                                                 |
+| `500`       | Error. Any unexpected errors. _Refer to the previous example._                                          |
 
 An example of the success response:
 
@@ -245,6 +251,8 @@ services:
       - SynoApiOptions:FileStationSearchFolders:0=<<PATH_TO_PHOTOS_FOLDER_IN_NAS>>
       - SynoApiOptions:FileStationSearchFolders:1=<<PATH_TO_PHOTOS_FOLDER_IN_NAS>> ## If you have more than one folder to search
       - SynoApiOptions:NumberOfPhotoDownloads=10
+      - ThirdPartyServices:EnableGeolocation=true
+      - GoogleMapsOptions:ApiKey=<<GOOGLE_MAPS_API_KEY>>
     volumes:
       - ./.slides:/app/slides
       - ./.logs:/app/logs
@@ -252,6 +260,8 @@ services:
 ```
 
 Volumes are optional, but I find them useful to be able to access the downloaded photos and logs.
+
+See "[Photo Location](./docs/photo-location.md)" for more information about getting the Google Maps API key. Related to `ThirdPartyServices` and `GoogleMapsOptions`.
 
 To build the image, run the following command:
 
@@ -326,6 +336,10 @@ The environment variables will be as follows:
 | SynoApiOptions:FileStationSearchFolders:0 | [[PATH_TO_PHOTOS_FOLDER_IN_NAS]] |
 | SynoApiOptions:NumberOfPhotoDownloads     | 79                               |
 | SynoApiOptions:DownloadAbsolutePath       | /app/slides                      |
+| ThirdPartyServices:EnableGeolocation       | true                             |
+| GoogleMapsOptions:ApiKey                  | [[GOOGLE_MAPS_API_KEY]]         |
+
+See "[Photo Location](./docs/photo-location.md)" for more information about getting the Google Maps API key. Related to `ThirdPartyServices` and `GoogleMapsOptions`.
 
 ## Important!!!!!!!
 

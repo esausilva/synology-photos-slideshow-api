@@ -37,7 +37,7 @@ public partial class GoogleLocationService : ILocationService
     public async Task<string> GetLocation(double lat, double lon, CancellationToken cancellationToken)
     {
         const string locationCacheTag = "Location";
-        
+
         var cacheKey = $"{lat}{lon}";
 
         LogCheckingCache(cacheKey);
@@ -66,7 +66,12 @@ public partial class GoogleLocationService : ILocationService
             var response = await httpClient.GetFromJsonAsync<GoogleGeocodeResponse>(geocodeUrl, cancellationToken);
 
             if (response is not { Status: "OK", Results.Count: > 0 })
+            {
+                _logger.LogWarning(
+                    "Failed to get location from Google Maps API with Response Status Code: '{StatusCode}' for the following location: '{Lat},{Lon}'",
+                    response?.Status, lat, lon);
                 return string.Empty;
+            }
 
             // Google returns multiple results (street level, neighborhood level, etc.)
             // We usually want the most specific one (the first result)
