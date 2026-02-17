@@ -21,6 +21,8 @@ public static class ConfigurationExtensions
                 .AddHttpClient(SlideshowConstants.GeolocationHttpClient)
                 .AddStandardResilienceHandler();
             
+            services.ConfigureRedis(configuration);
+            
             services.AddHybridCache(options =>
             {
                 var cacheDuration = TimeSpan.FromDays(7);
@@ -73,13 +75,28 @@ public static class ConfigurationExtensions
                 .GetSection(nameof(GoogleMapsOptions))
                 .Get<GoogleMapsOptions>();
 
-            if (googleMapsOptions?.EnableMocks is true)
+            if (googleMapsOptions!.EnableMocks)
                 services.AddTransient<ILocationService, GoogleLocationServiceMock>();
             else
                 services.AddTransient<ILocationService, GoogleLocationService>();
 #else
             services.AddTransient<ILocationService, GoogleLocationService>();
 #endif
+        }
+
+        private void ConfigureRedis(ConfigurationManager configuration)
+        {
+            var thirdPartyServices = configuration
+                .GetSection(nameof(ThirdPartyServices))
+                .Get<ThirdPartyServices>();
+
+            if (thirdPartyServices!.EnableDistributedCache)
+            {
+                services.AddStackExchangeRedisCache(options =>
+                {
+                    options.Configuration = configuration.GetConnectionString("Redis");
+                });
+            }
         }
     }
 }

@@ -18,7 +18,7 @@ public sealed partial class PhotosService : IPhotosService
     private readonly ILocationService _locationService;
     private readonly ILogger<PhotosService> _logger;
 
-    // Synology creates thumbnails in a directory named "@eaDir" when accessing the photos via 'DS File'
+    // DSM creates thumbnails in a directory named "@eaDir" when accessing the photos via 'DS File'
     private const string ThumbnailDir = "@eaDir";
 
     private static readonly HashSet<string> ValidImageExtensions = new(StringComparer.OrdinalIgnoreCase)

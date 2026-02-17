@@ -114,10 +114,10 @@ An example of the success response:
 ```json
 [
   {
-    "relativeUrl": "/slideshow/20250724_200733.webp",
-    "dateTaken": "2025-07-24 20:07:33 -07:00",
-    "googleMapsLink": "https://www.google.com/maps?q=36.423593499999996,-118.91434909972223",
-    "location": "Nashville, TN"
+    "relativeUrl": "/slideshow/20250723_135938.webp",
+    "dateTaken": "2025-07-23 13:59:38 -07:00",
+    "googleMapsLink": "https://www.google.com/maps?q=37.7493922,-119.5492962",
+    "location": "Yosemite Valley, CA"
   },
   {
     "relativeUrl": "/slideshow/IMG_20200323_083612.webp",

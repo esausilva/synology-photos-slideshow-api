@@ -20,3 +20,8 @@
     ports:
       - "5097:5097"
       - "7078:7078"
+
+  redis.slideshow:
+    image: redis:8.6.0-alpine
+    ports:
+      - "6379:6379"
