@@ -25,7 +25,7 @@ public static class ConfigurationExtensions
             
             services.AddHybridCache(options =>
             {
-                var cacheDuration = TimeSpan.FromDays(7);
+                var cacheDuration = TimeSpan.FromDays(10);
                 
                 options.DefaultEntryOptions = new HybridCacheEntryOptions
                 {
