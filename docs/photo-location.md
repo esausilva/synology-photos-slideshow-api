@@ -54,5 +54,5 @@ The L1 cache clears upon restart of the API. The L2 cache is persisted across re
 
 The way it works is `HybridCache` checks the L1 cache first, if it is a cache miss, it will check the L2 cache next. If this is also a cache miss, it will call the Geocoding API and store the response in both cache implementations.
 
-I have configured Reedis as the L2 cache. Refer to [Redis](redis.md) for more details.
+I have configured Redis as the L2 cache. Refer to [Redis](redis.md) for more details.
  
