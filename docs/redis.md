@@ -85,3 +85,9 @@ Now that you have the container running in your NAS, the connection string will 
 Replace `[SERVER_IP]` with the IP address of your Synology NAS.
 
 Refer to [Deployment To Your Synology NAS Device](../README.md#deployment-to-your-synology-nas-device) for API environment variable configuration and more details.
+
+## Another Redis Desktop Manager (ARDM)
+
+As a side note, I am using [Another Redis Desktop Manager](https://goanother.com/), a cross-platform GUI client for Redis.
+
+It is free and open-source, but support the project if you are able to.
