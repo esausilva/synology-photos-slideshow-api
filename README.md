@@ -4,7 +4,7 @@ An API that downloads random photos from a Synology NAS, converts them to WebP, 
 
 ## How it works
 
-1. `GET /photos/download` authenticates with Synology, searches configured folders, downloads a random set, unzips, flattens the folder structure, and converts images to WebP.
+1. `GET /photos/download` authenticates with the Synology NAS, searches configured folders, downloads a random set, unzips, flattens the folder structure, and converts images to WebP.
 2. Photos are served as static files under `/slideshow`.
 3. `GET /photos/slides` returns metadata for the files currently in the slideshow folder.
 
