@@ -19,16 +19,20 @@ public static class ConfigureEndpointsExtensions
         {
             group.MapGet("download", DownloadPhotos.GetAsync)
                 .WithName("DownloadPhotos")
-                .Produces<IList<string>>();
+                .Produces(StatusCodes.Status204NoContent)
+                .Produces(StatusCodes.Status503ServiceUnavailable)
+                .Produces(StatusCodes.Status500InternalServerError);
 
             group.MapGet("slides", Slides.GetAsync)
                 .WithName("GetPhotoUrls")
-                .Produces<IList<string>>();
+                .Produces<IList<string>>()
+                .Produces(StatusCodes.Status500InternalServerError);
             
             group.MapPost("bulk-delete", DeletePhoto.PostAsync)
                 .WithName("BulkDeletePhotos")
-                .Produces(StatusCodes.Status204NoContent)
-                .Produces<IList<string>>(StatusCodes.Status404NotFound);
+                .Produces<IList<string>>()
+                .Produces<IList<string>>(StatusCodes.Status404NotFound)
+                .Produces(StatusCodes.Status500InternalServerError);
             
             return group;
         }

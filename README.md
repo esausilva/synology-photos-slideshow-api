@@ -1,16 +1,16 @@
 # Synology Photos Slideshow API
 
-> An API to randomly fetch and serve images from Synology NAS devices, optimized for use in slideshow applications.
+An API that downloads random photos from a Synology NAS, converts them to WebP, and serves them for slideshow clients.
 
-The idea behind this API is to download a set of photos picked at random from your Synology NAS device to be displayed in a client slideshow application.
+## How it works
 
-This set of photos can be refreshed at any time by calling the [Download Photos](#download-photos) endpoint.
+1. `GET /photos/download` authenticates with Synology, searches configured folders, downloads a random set, unzips, flattens the folder structure, and converts images to WebP.
+2. Photos are served as static files under `/slideshow`.
+3. `GET /photos/slides` returns metadata for the files currently in the slideshow folder.
 
-The API is meant to be deployed on a Synology NAS device on your local network and accessed from within your local network. This is to keep everything private on your own cloud.
+The API is intended to run on your Synology NAS and be accessed only from your local network.
 
-I have the API deployed and tested in Synology Container Manager, but it should work on any Docker host. e.g. Portainer.
-
-Table of Contents:
+### Table of Contents:
 
   - [Endpoints](#endpoints)
     - [Download Photos](#download-photos)
@@ -18,7 +18,7 @@ Table of Contents:
     - [Bulk Delete Photos](#bulk-delete-photos)
   - [Logging](#logging)
   - [Local Development](#local-development)
-  - [Docker Local](#docker-local)
+  - [Docker (Local)](#docker-local)
   - [Deployment To Your Synology NAS Device](#deployment-to-your-synology-nas-device)
   - [Important !!!!!!!](#important)
   - [Future Enhancements](#future-enhancements)
@@ -30,7 +30,9 @@ Table of Contents:
 
 ## Endpoints
 
-The API exposes two ports: **5097** for **HTTP** and **7078** for **HTTPS**. (HTTPS only working locally for now)
+Base URL (local dev): `http://localhost:5097` (HTTPS in dev only: `https://localhost:7078`)
+
+Base URL (running on the NAS): `http://<nas-ip>:5097`
 
 The API exposes the following endpoints:
 
@@ -38,33 +40,31 @@ The API exposes the following endpoints:
 - Get Photo Slides
 - Bulk Delete Photos
 
-The base URL is `http://<your-nas-ip>:5097`. When running the API for local development, replace the NAS IP with `localhost`.
-
 ### Download Photos
 
 ```text
 GET /photos/download
 ```
 
-This endpoint randomly selects, downloads, and converts the downloaded photos to WebP format.
+- Randomly selects photos from `SynoApiOptions.FileStationSearchFolders`.
+  - Typically, the photos would be located on the `/photo` volume on your NAS or your home share. e.g. `/[username]/Photos/PhotoLibrary`.
+- Clears the download folder first.
+- Uses Synology credentials
+- Downloads, unzips, flattens, and converts to WebP.
 
-The photos are taken from a configured folder(s) on your Synology NAS device, these downloads are then placed in a configured folder where the API has access to. Typically, the photos would be located on the `/photo` volume on your NAS or your home share. e.g. `/[username]/Photos/PhotoLibrary`.  
-
-Every time this endpoint is called, it will clean the previously downloaded photos and download a new set of photos.
+This endpoint is process-intensive and can take a few minutes to complete. I will break it up later into background services after implementing real-time client notifications.
 
 Refer to "[Local Development](#local-development)", "[Docker Local](#docker-local)", and "[Deployment](#deployment-to-your-synology-nas-device)" for more information on configuration.
 
-**Note 1:** There is an issue with the number of photos to download. It seems to be limited to 79; however, this number limit works for now. I will look into this later and try to figure this out.
-
-**Note 2:** This is a process-intensive endpoint as it searches the Synology NAS, downloads the photos, processes them into a flattened hierarchy, and then converts them to WebP format. I will break these up later into background services after implementing real-time client notifications.
+**Note:** There is an issue with the number of photos to download. It seems to be limited to 79; however, this number limit works for now. I will look into this later and try to figure this out.
 
 #### Response Codes
 
-| Status Code | Description                                                                                                            |
-| :---------- |:-----------------------------------------------------------------------------------------------------------------------|
-| `204`       | Success                                                                                                                |
-| `503`       | This is returned if the API is unable to download photos due to issues with the official Synology API. e.g., timeouts. |
-| `500`       | Any other unexpected errors.                                                                                           |
+| Status Code | Description                         |
+|:------------|:------------------------------------|
+| `204`       | Success                             |
+| `503`       | Synology API/search failure         |
+| `500`       | Unexpected errors (Problem Details) |
 
 An example of the error response:
 
@@ -96,19 +96,20 @@ GET /photos/slides
 
 This endpoint returns a collection of slides with info about the photos previously downloaded by the [Download Photos](#download-photos) endpoint with the following properties:
 
-| Property         | Description                                                                                                                                                                                                                                                                                                                                                                     |
-| :--------------- |:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `relativeUrl`    | The relative photo URL. To get the full URL of the photo, the client application needs to concatenate the base URL with this value.                                                                                                                                                                                                                                             |
-| `dateTaken`      | The date the photo was taken.<br>This value can be empty if the photo does not have the "Date Time" metadata.<br>If there is no date time offset in the photo metadata, it will return as unspecified and the client application will translate to local timezone.                                                                                                              |
-| `googleMapsLink` | A link to the photo location on Google Maps.<br>This value can be empty if the photo does not have GPS metadata.                                                                                                                                                                                                                                                                |
-| `location`       | The photo location in the following format: _City, State_.<br>This value can be empty if the photo does not have GPS metadata.<br>I implement **Google Maps API** to get the location from the photo metadata, which is opt-in and disabled by default, and the API will return empty if not enabled. Refer to [Photo Location](./docs/photo-location.md) for more information. |
+| Property         | Description                                                                                                                                                                                             |
+| :--------------- |:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `relativeUrl`    | The relative* photo URL. e.g., `/slideshow/IMG_20200323_083612.webp`                                                                                                                                    |
+| `dateTaken`      | The date the photo was taken<br>Empty if missing EXIF DateTimeOriginal. If EXIF has no timezone offset, the server's local offset is used                                                               |
+| `googleMapsLink` | A link to the photo location on Google Maps<br>Empty if GPS metadata is missing                                                                                                                         |
+| `location`       | The photo location in the following format: _City, State_<br>Empty unless geolocation is enabled and GPS metadata is valid<br>Refer to [Photo Location](./docs/photo-location.md) for more information. |
 
+*To get the full URL of the photo, the client application needs to concatenate the base URL with this value.
 #### Response Codes
 
-| Status Code | Description                                                      |
-| :---------- |:-----------------------------------------------------------------|
-| `200`       | Success                                                          |
-| `500`       | Any unexpected errors. _Refer to the previous example response_ |
+| Status Code | Description                         |
+| :---------- |:------------------------------------|
+| `200`       | Success                             |
+| `500`       | Unexpected errors (Problem Details) |
 
 An example of the success response:
 
@@ -145,25 +146,27 @@ This endpoint deletes photos from the slideshow folder.
 
 Accepts the list of photo names to delete.
 
-Payload example:
+The request body is an array of file names:
 
 ```js
 [
   "20240303_154856.jpg",
-  "20240818_154700.jpg",
-  "20250403_080106.jpg"
+  "20240818_154700.jpg"
 ]
 ```
 
-The endpoint will attempt to delete all the photos in the payload and return the list of photos that were not found. In case where all the photos were not found, it will return a `404 Not Found` error.
+Behavior:
+- Deletes only from the local slideshow folder (not from the original NAS location).
+- Returns a list of `unmatchedPhotos`.
+- Returns `404` if nothing matched.
 
 #### Response Codes
 
-| Status Code | Description                                                                                            |
-| :---------- |:-------------------------------------------------------------------------------------------------------|
-| `200`       | Success. Will return the list of photos that were not found. Or an empty list if all photos were found |
-| `404`       | Not Found. This is returned if all photos were not found                                               |
-| `500`       | Any unexpected errors. _Refer to the previous example response_                                        |
+| Status Code | Description                         |
+| :---------- |:------------------------------------|
+| `200`       | Success (with `unmatchedPhotos`)    |
+| `404`       | None matched                        |
+| `500`       | Unexpected errors (Problem Details) |
 
 An example of the success response:
 
@@ -184,9 +187,7 @@ An example of the success response:
 
 ## Logging
 
-The API logs to a file in a `logs` folder, and will create it relative to the deployment root if it doesn't exist; it will also place a JSON file in the `logs` folder per day.
-
-The file name format is `api-logs_20251006.json`.
+Logs are written to `./logs` with daily rolling JSON files (for example, `api-logs_20260221.json`).
 
 I might switch this to a database in the future. But for now, it's good enough.
 
@@ -225,34 +226,41 @@ Update the following app settings in `appsettings.json` or create a .NET User Se
 }
 ```
 
-| Configuration Key | Description | Example/Default Value                                                            |
-|------------------|-------------|----------------------------------------------------------------------------------|
-| `UriBase.ServerIpOrHostname` | The IP or hostname of your Synology NAS device | e.g., `192.168.1.100` or `localhost`                                             |
-| `UriBase.Port` | The port for Synology NAS devices | **5000** (default). If you are using a different port, update this value to match. |
-| `SynologyUser.Account` | The username for your Synology NAS device | Main account or service account with file access privileges                      |
-| `SynologyUser.Password` | The password for your Synology NAS device | Your account password                                                            |
-| `SynoApiOptions.FileStationSearchFolders` | List of folders on your Synology NAS to search for photos | Must be absolute paths (e.g., `/photo/family`)                                   |
-| `SynoApiOptions.NumberOfPhotoDownloads` | The number of photos to download | Any integer value                                                                |
-| `SynoApiOptions.DownloadAbsolutePath` | The absolute path to download photos to | Must exist before API starts, or it will throw exception at bootup               |
-| `ThirdPartyServices.EnableGeolocation` | Enable Google Maps API to get photo location | **false** (default). |
-| `ThirdPartyServices.EnableDistributedCache` | Enable Redis distributed cache to speed up photo location lookup | **false** (default). |
-| `GoogleMapsOptions.ApiKey` | Google Maps API key | Your API key. |
-| `GoogleMapsOptions.EnableMocks` | Enable mock Google Maps API responses for testing | **true** (default). |
-| `ConnectionStrings.Redis` | Redis connection string | e.g.,`localhost:6379,abortConnect=false,connectTimeout=10000` |
+| Configuration Key                           | Description                                                      | Example/Default Value                                                              |
+| ------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `UriBase.ServerIpOrHostname`                | The IP or hostname of your Synology NAS device                   | e.g., `192.168.1.100` or `localhost`                                               |
+| `UriBase.Port`                              | The port for Synology NAS devices                                | **5000** (default). If you are using a different port, update this value to match. |
+| `SynologyUser.Account`                      | The username for your Synology NAS device                        | Main account or service account with file access privileges                        |
+| `SynologyUser.Password`                     | The password for your Synology NAS device                        | Your account password                                                              |
+| `SynoApiOptions.FileStationSearchFolders`   | List of folders on your Synology NAS to search for photos        | Must be absolute paths (e.g., `/photo/family`)                                     |
+| `SynoApiOptions.NumberOfPhotoDownloads`     | The number of photos to download                                 | Any integer value                                                                  |
+| `SynoApiOptions.DownloadAbsolutePath`       | The absolute path to download photos to                          | Must exist before API starts, or it will throw exception at bootup                 |
+| `ThirdPartyServices.EnableGeolocation`      | Enable Google Maps API to get photo location                     | **false** (default).                                                               |
+| `ThirdPartyServices.EnableDistributedCache` | Enable Redis distributed cache to speed up photo location lookup | **false** (default).                                                               |
+| `GoogleMapsOptions.ApiKey`                  | Google Maps API key                                              | Your API key.                                                                      |
+| `GoogleMapsOptions.EnableMocks`             | Enable mock Google Maps API responses for testing                | **true** (default).                                                                |
+| `ConnectionStrings.Redis`                   | Redis connection string                                          | e.g.,`localhost:6379,abortConnect=false,connectTimeout=10000`                      |
 
 Refer to [Endpoints](#endpoints) on how to call the API endpoints.
 
-Refer to [Photo Location](./docs/photo-location.md) for more information about getting the Google Maps API key and third party services/distributed cache.
+Refer to [Photo Location](./docs/photo-location.md) and [Redis](./docs/redis.md) for geolocation and caching, including getting the Google Maps API.
 
-## Docker Local
+OpenAPI is available in Development at https://localhost:7078/openapi/v1.json.
 
-The `dockerfile` has instructions to create the `SynoApiOptions.DownloadAbsolutePath` folder. It will create it at the root of the deployment folder: `/app/slides`.
+## Docker (Local)
 
-The `docker-compose.yml` file is already setting up an environment variable for the `SynoApiOptions.DownloadAbsolutePath` folder pointing to `/app/slides`.
+The Dockerfile creates `/app/slides` (`SynoApiOptions.DownloadAbsolutePath`) and `/app/logs`. The default compose file binds HTTP only:
+
+```yaml
+- ASPNETCORE_URLS=http://+:5097
+- ASPNETCORE_HTTP_PORTS=5097
+```
+
+The [docker-compose.yaml](docker-compose.yaml) file is setting up an environment variable for the `SynoApiOptions.DownloadAbsolutePath` folder pointing to `/app/slides`.
 
 I suggest creating a `docker-compose.local.yml` file to override some of the other app settings variables. Which is what I am doing, but not including in the repo.
 
-This is a sample of the `docker-compose.local.yml` file:
+Sample `docker-compose.local.yml` override:
 
 ```yaml
 services:
@@ -290,23 +298,16 @@ services:
 
 Volumes are optional, but I find them useful to be able to access the downloaded photos and logs.
 
-Refer to [Photo Location](./docs/photo-location.md) for more information about getting the Google Maps API key and third party services/distributed cache.
+Refer to [Photo Location](./docs/photo-location.md) and [Redis](./docs/redis.md) for geolocation and caching, including getting the Google Maps API.
 
-To build the image, run the following command:
+Build and run:
 
 ```shell
 docker-compose -f docker-compose.yaml -f docker-compose.local.yaml build
-```
-
-To create the container and start it, run the following command:
-
-```shell
 docker-compose -f docker-compose.yaml -f docker-compose.local.yaml up -d
 ```
 
-`-d` is optional if you want to run/create the container as a detached (background) process.
-
-Note: It would be a good idea to rename the image in both Docker compose files and remove my name from the image name.
+**Note**: It would be a good idea to rename the image in both Docker compose files and remove my name from the image name.
 
 ## Deployment To Your Synology NAS Device
 
@@ -317,19 +318,14 @@ Two options:
 
 **For option 2:**
 
-Run the following command to build the image:
+Build and push to Docker Hub:
 
 ```shell
 docker-compose build
+docker push [your-repo]/synology.photos.slideshow.api:latest
 ```
 
 This will take the default docker compose file, `docker-compose.yaml`, and build the image, skipping the local docker compose file, `docker-compose.local.yml`.
-
-Run the following command to push the image to your Docker Hub repository:
-
-```shell
-docker push [your-repo]/synology.photos.slideshow.api:latest
-```
 
 **For both options:**
 
@@ -370,7 +366,7 @@ The environment variables will be as follows:
 | GoogleMapsOptions:ApiKey                  | [[GOOGLE_MAPS_API_KEY]]                                    |
 | ConnectionStrings:Redis                   | [[SERVER_IP]]:6379,abortConnect=false,connectTimeout=10000 |
 
-Refer to [Photo Location](./docs/photo-location.md) for more information about getting the Google Maps API key and third party services/distributed cache.
+Refer to [Photo Location](./docs/photo-location.md) and [Redis](./docs/redis.md) for geolocation and caching, including getting the Google Maps API.
 
 ## Important!!!!!!!
 
@@ -396,7 +392,7 @@ What else? Will see...
 
 ## Client App
 
-The web client app is now available at: [Synology Photos Slideshow Client](https://github.com/esausilva/synology-photos-slideshow-client)
+The web client app is available at: [Synology Photos Slideshow Client](https://github.com/esausilva/synology-photos-slideshow-client)
 
 ## Shameless Plug
 

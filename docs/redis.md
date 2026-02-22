@@ -1,52 +1,43 @@
 # Redis
 
-_Refer to [Photo location](photo-location.md) first if you haven't already, then come back here._
+Redis is optional and **disabled by default**. Enable it only if you want distributed caching for geolocation lookups.
 
-Redis is completely optional and is **disabled by default**. To enable it, you will need to set `ThirdPartyServices.EnableDistributedCache` to `true` in the app settings:
+Prerequisite: read [Photo location](photo-location.md) first to understand when geolocation is used.
+
+## Enable Redis
+
+Set:
 
 ```json
 {
   "ThirdPartyServices": {
-    "EnableDistributedCache": false
-  }
-}
-```
-
-Leaving it disabled will not affect the API in any way, and the API will only have the L1 cache available.
-
-If you choose to enable Redis, you will need to provide a connection string in the `ConnectionStrings.Redis` app setting.
-
-```json
-{
+    "EnableDistributedCache": true
+  },
   "ConnectionStrings": {
     "Redis": "<<REDIS_CONNECTION_STRING>>"
   }
 }
 ```
 
+If disabled, the API still uses in-memory caching only.
+
 **Note**: I am using Redis 8.6.0, but you can use whatever version you like.
 
-## Running Redis locally
+### Connection strings
 
-Running Redis locally as a stand-alone Docker container, the connection string will look something like this:
+Examples:
 
-```text
-localhost:6379,abortConnect=false,connectTimeout=10000
-```
+- Local container: `localhost:6379,abortConnect=false,connectTimeout=10000`
+- Docker Compose service: `redis.slideshow:6379,abortConnect=false,connectTimeout=10000`
+- Synology NAS: `[[SERVER_IP]]:6379,abortConnect=false,connectTimeout=10000`
 
-And to get it up and running, run the following command:
+## Run Redis locally (Docker)
 
 ```shell
-docker run -d --name redis -p 6379:6379 -v redis-data:/data redis:8.6.0-alpine redis-server --appendonly yes -d
+docker run -d --name redis -p 6379:6379 -v redis-data:/data redis:8.6.0-alpine redis-server --appendonly yes
 ```
 
-I have Redis configured in the `docker-compose.yml` file, and an override in the `docker-compose.local.yml` file that will use the `redis.slideshow` network if you run this API with Docker Compose.
-
-In this case, the connection string will look something like this:
-
-```text
-redis.slideshow:6379,abortConnect=false,connectTimeout=10000
-```
+The project's `docker-compose.yaml` includes a Redis service for local development and an override in the `docker-compose.local.yml` file that will use the `redis.slideshow` network if you run this API with Docker Compose.
 
 Refer to [Docker Local](../README.md#docker-local) for a sample of the `docker-compose.local.yml` file and the commands to build and run the API with Docker Compose.
 
@@ -76,18 +67,10 @@ One last configuration if you choose to store the cache data on your NAS, assign
 redis-server --appendonly yes
 ```
 
-Now that you have the container running in your NAS, the connection string will look something like this:
-
-```text
-[[SERVER_IP]]:6379,abortConnect=false,connectTimeout=10000
-```
-
-Replace `[SERVER_IP]` with the IP address of your Synology NAS.
-
 Refer to [Deployment To Your Synology NAS Device](../README.md#deployment-to-your-synology-nas-device) for API environment variable configuration and more details.
 
-## Another Redis Desktop Manager (ARDM)
+## GUI client (optional)
 
-As a side note, I am using [Another Redis Desktop Manager](https://goanother.com/), a cross-platform GUI client for Redis.
+Another Redis Desktop Manager (ARDM) is a free, open-source, and cross-platform GUI client: https://goanother.com/
 
-It is free and open-source, but support the project if you are able to.
+Support the project if you are able to.
