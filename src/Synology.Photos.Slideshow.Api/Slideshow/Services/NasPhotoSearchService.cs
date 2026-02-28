@@ -13,7 +13,7 @@ namespace Synology.Photos.Slideshow.Api.Slideshow.Services;
 /// <summary>
 /// Provides functionality to search and retrieve photos from a Synology NAS.
 /// </summary>
-public sealed class NasPhotoSearchService : INasPhotoSearchService
+public sealed partial class NasPhotoSearchService : INasPhotoSearchService
 {
     private readonly ISynologyApiInfoProvider _apiInfoProvider;
     private readonly ISynologyApiService _apiService;
@@ -21,7 +21,8 @@ public sealed class NasPhotoSearchService : INasPhotoSearchService
     private readonly ISynologyAuthenticationContext _authContext;
     private readonly IOptionsMonitor<SynoApiOptions> _synoApiOptions;
     private readonly ILogger<NasPhotoSearchService> _logger;
-
+    private readonly Random _random = Random.Shared;
+    
     private static readonly IList<string> VideoFileExtensions = [".mp4", ".mov", ".avi", ".mkv", ".wmv"];
 
     private const int SingleItemLimit = 1;
@@ -159,7 +160,7 @@ public sealed class NasPhotoSearchService : INasPhotoSearchService
         
         while (searchListResponse?.Data?.Finished is false && retryCount < maxRetryAttempts)
         {
-            _logger.LogDebug("Retrying search operation (attempt {RetryCount})", retryCount);
+            LogRetryingSearchOperationAttemptRetryCount(retryCount);
 
             await Task.Delay(SearchPollingDelayMs, cancellationToken);
             
@@ -205,7 +206,7 @@ public sealed class NasPhotoSearchService : INasPhotoSearchService
             if (!string.IsNullOrWhiteSpace(fileStationItem.Path) && 
                 VideoFileExtensions.Any(ext => fileStationItem.Path.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
             {
-                _logger.LogDebug("Skipping video file: {Path}", fileStationItem.Path);
+                LogSkippingVideoFilePath(fileStationItem.Path);
                 continue;
             }
         
@@ -225,8 +226,7 @@ public sealed class NasPhotoSearchService : INasPhotoSearchService
         int totalPhotosCount, 
         CancellationToken cancellationToken)
     {
-        var random = new Random();
-        var randomOffset = random.Next(totalPhotosCount);
+        var randomOffset = _random.Next(totalPhotosCount);
         
         var listRequest = CreateSearchListRequest(taskId, apiVersion, offset: randomOffset);
         var searchUrl = _requestBuilder.BuildUrl(listRequest);
@@ -271,4 +271,10 @@ public sealed class NasPhotoSearchService : INasPhotoSearchService
         
         _logger.LogDebug("Cleaned up search task");
     }
+
+    [LoggerMessage(LogLevel.Debug, "Skipping video file: {Path}")]
+    partial void LogSkippingVideoFilePath(string path);
+
+    [LoggerMessage(LogLevel.Debug, "Retrying search operation (attempt {RetryCount})")]
+    partial void LogRetryingSearchOperationAttemptRetryCount(int retryCount);
 }
