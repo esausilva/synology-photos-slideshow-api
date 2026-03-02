@@ -2,6 +2,8 @@ using Microsoft.Extensions.Caching.Hybrid;
 using Synology.Photos.Slideshow.Api.Configuration;
 using Synology.Photos.Slideshow.Api.Constants;
 using Synology.Photos.Slideshow.Api.Slideshow.Auth;
+using Synology.Photos.Slideshow.Api.Slideshow.BackgroundServices;
+using Synology.Photos.Slideshow.Api.Slideshow.Messaging;
 using Synology.Photos.Slideshow.Api.Slideshow.Providers;
 using Synology.Photos.Slideshow.Api.Slideshow.Services;
 using Synology.Photos.Slideshow.Api.Slideshow.Services.Mocks;
@@ -36,11 +38,14 @@ public static class ConfigurationExtensions
         
             services.AddScoped<ISynologyAuthenticationContext, SynologyAuthenticationContext>();
             services.AddSingleton<ISynologyApiInfoProvider, SynologyApiInfoProvider>();
+            services.AddSingleton<IPhotoProcessingChannel, PhotoProcessingChannel>();
             services.AddTransient<INasPhotoSearchService, NasPhotoSearchService>();
             services.AddTransient<IFileStation, FileStation>();
             services.AddTransient<IFileProcessor, FileProcessor>();
             services.AddTransient<IPhotosService, PhotosService>();
             services.ConfigureLocationService(configuration);
+            
+            services.AddHostedService<PhotoProcessingWorker>();
             
             return services;
         }
