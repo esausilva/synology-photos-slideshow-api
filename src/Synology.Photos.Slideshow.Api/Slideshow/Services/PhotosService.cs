@@ -100,22 +100,20 @@ public sealed partial class PhotosService : IPhotosService
     /// <returns>A task returning a read-only list of <see cref="SlidesResponse"/> objects containing photo metadata.</returns>
     public async Task<IReadOnlyList<SlidesResponse>> GetSlides(CancellationToken cancellationToken)
     {
-        var slides = await Task.Run(() =>
-        {
-            _logger.LogInformation("Retrieving photo metadata and creating relative URLs");
+        _logger.LogInformation("Retrieving photo metadata and creating relative URLs");
 
-            return Directory.EnumerateFiles(_rootPath, "*", SearchOption.AllDirectories)
-                .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}{ThumbnailDir}{Path.DirectorySeparatorChar}") &&
-                            !f.Contains($"{Path.DirectorySeparatorChar}{ThumbnailDir}"))
-                .Where(f => ValidImageExtensions.Contains(Path.GetExtension(f)))
-                .Select(async f => await CreateImageSlideInfo(f, cancellationToken))
-                .Select(t => t.Result)
-                .ToList();
-        }, cancellationToken);
-        
-        return (from slide in slides
-            where slide is not null
-            select slide).ToList();
+        var slideCreationTasks = Directory.EnumerateFiles(_rootPath, "*", SearchOption.AllDirectories)
+            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}{ThumbnailDir}{Path.DirectorySeparatorChar}") &&
+                        !f.Contains($"{Path.DirectorySeparatorChar}{ThumbnailDir}"))
+            .Where(f => ValidImageExtensions.Contains(Path.GetExtension(f)))
+            .Select(f => CreateImageSlideInfo(f, cancellationToken));
+
+        var slides = await Task.WhenAll(slideCreationTasks);
+
+        return slides
+            .Where(slide => slide is not null)
+            .Select(slide => slide!)
+            .ToList();
     }
 
     private static (int scaledWidth, int scaledHeight) ScaleImageDimensions(Image image, double scale) =>

@@ -71,7 +71,10 @@ public sealed partial class FileProcessor : IFileProcessor
         }
 
         await UnzipPhotos(zipPath, extractPath, cancellationToken);
-        await CleanupZipFile(zipPath, cancellationToken);
+        
+        if (File.Exists(zipPath))
+            File.Delete(zipPath);
+        
         await FlattenDirectory(extractPath, cancellationToken);
 
         _logger.LogInformation("Finished processing zip file");
@@ -149,17 +152,6 @@ public sealed partial class FileProcessor : IFileProcessor
             foreach (var dir in directories)
             {
                 Directory.Delete(dir, true);
-            }
-        }, cancellationToken);
-    }
-
-    private static async Task CleanupZipFile(string zipPath, CancellationToken cancellationToken)
-    {
-        await Task.Run(() =>
-        {
-            if (File.Exists(zipPath))
-            {
-                File.Delete(zipPath);
             }
         }, cancellationToken);
     }
