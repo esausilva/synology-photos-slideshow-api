@@ -3,7 +3,7 @@ using Synology.Photos.Slideshow.Api.Slideshow.Services;
 
 namespace Synology.Photos.Slideshow.Api.Slideshow.Endpoints;
 
-public static class DeletePhoto
+public static class DeletePhotos
 {
     public static async Task<IResult> PostAsync([FromBody] IList<string> request,
         IPhotosService photosService, 
@@ -21,7 +21,7 @@ public static class DeletePhoto
         if (photosToDelete.Count == 0)
             return Results.NotFound();
 
-        await fileProcessor.DeletePhotoAsync(photosToDelete, cancellationToken);
+        await fileProcessor.DeletePhotos(photosToDelete, cancellationToken);
         
         return Results.Ok(new { unmatchedPhotos });
     }

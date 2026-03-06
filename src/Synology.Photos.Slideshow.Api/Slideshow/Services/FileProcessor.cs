@@ -78,11 +78,12 @@ public sealed partial class FileProcessor : IFileProcessor
     }
 
     /// <summary>
-    /// Deletes a photo from the local file system.
+    /// Deletes the specified photos from the download directory.
     /// </summary>
-    /// <param name="photosToDelete"></param>
-    /// <param name="cancellationToken"></param>
-    public async Task DeletePhotoAsync(IList<string> photosToDelete, CancellationToken cancellationToken)
+    /// <param name="photosToDelete">The list of photo names to delete from the download directory.</param>
+    /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    public async Task DeletePhotos(IList<string> photosToDelete, CancellationToken cancellationToken)
     {
         var rootPath = _synoApiOptions.CurrentValue.DownloadAbsolutePath;
 

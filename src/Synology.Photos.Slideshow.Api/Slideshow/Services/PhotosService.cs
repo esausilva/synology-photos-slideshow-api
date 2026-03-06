@@ -16,6 +16,7 @@ public sealed partial class PhotosService : IPhotosService
     private readonly string _rootPath;
     private readonly bool _isGeolocationEnabled;
     private readonly ILocationService _locationService;
+    private readonly IFileProcessor _fileProcessor;
     private readonly ILogger<PhotosService> _logger;
 
     // DSM creates thumbnails in a directory named "@eaDir" when accessing the photos via 'DS File'
@@ -35,11 +36,13 @@ public sealed partial class PhotosService : IPhotosService
         IOptionsMonitor<SynoApiOptions> synoApiOptions, 
         IOptionsMonitor<ThirdPartyServices> thirdPartyServices,
         ILocationService locationService,
+        IFileProcessor fileProcessor,
         ILogger<PhotosService> logger)
     {
         _rootPath = synoApiOptions.CurrentValue.DownloadAbsolutePath;
         _isGeolocationEnabled = thirdPartyServices.CurrentValue.EnableGeolocation;
         _locationService = locationService;
+        _fileProcessor = fileProcessor;
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -51,41 +54,42 @@ public sealed partial class PhotosService : IPhotosService
     /// <returns>A task representing the asynchronous operation.</returns>
     public async Task ProcessPhotos(CancellationToken cancellationToken)
     {
-        await Task.Run(async () =>
+        _logger.LogInformation("Processing photos");
+
+        var stopwatch = Stopwatch.StartNew();
+
+        var photos = Directory.EnumerateFiles(_rootPath, "*", SearchOption.AllDirectories)
+            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}{ThumbnailDir}{Path.DirectorySeparatorChar}") &&
+                        !f.Contains($"{Path.DirectorySeparatorChar}{ThumbnailDir}"))
+            .Where(f => ImageExtensionsForConversion.Contains(Path.GetExtension(f)));
+        
+        var photosToDelete = new List<string>();
+
+        foreach (var photo in photos)
         {
-            _logger.LogInformation("Processing photos");
+            using var image = await Image.LoadAsync(photo, cancellationToken);
 
-            var stopwatch = Stopwatch.StartNew();
+            // Keeps user image orientation 
+            image.Mutate(i => i.AutoOrient());
 
-            var photos = Directory.EnumerateFiles(_rootPath, "*", SearchOption.AllDirectories)
-                .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}{ThumbnailDir}{Path.DirectorySeparatorChar}") &&
-                            !f.Contains($"{Path.DirectorySeparatorChar}{ThumbnailDir}"))
-                .Where(f => ImageExtensionsForConversion.Contains(Path.GetExtension(f)));
+            var (scaledWidth, scaledHeight) = ScaleImageDimensions(image, scale: 0.8);
+            var filename = Path.GetFileNameWithoutExtension(photo);
 
-            foreach (var photo in photos)
+            image.Mutate(i => i.Resize(scaledWidth, scaledHeight));
+
+            await image.SaveAsWebpAsync($"{_rootPath}{Path.DirectorySeparatorChar}{filename}.webp", new WebpEncoder
             {
-                using var image = await Image.LoadAsync(photo, cancellationToken);
+                Quality = 75,
+                FileFormat = WebpFileFormatType.Lossy
+            }, cancellationToken: cancellationToken);
 
-                // Keeps original image orientation 
-                image.Mutate(i => i.AutoOrient());
+            photosToDelete.Add(Path.GetFileName(photo));
+        }
 
-                var (scaledWidth, scaledHeight) = ScaleImageDimensions(image, scale: 0.8);
-                var filename = Path.GetFileNameWithoutExtension(photo);
-
-                image.Mutate(i => i.Resize(scaledWidth, scaledHeight));
-
-                await image.SaveAsWebpAsync($"{_rootPath}{Path.DirectorySeparatorChar}{filename}.webp", new WebpEncoder
-                {
-                    Quality = 75,
-                    FileFormat = WebpFileFormatType.Lossy
-                }, cancellationToken: cancellationToken);
-
-                File.Delete(photo);
-            }
-
-            stopwatch.Stop();
-            LogPhotosProcessedInElapsedMillisecondsMs(stopwatch.ElapsedMilliseconds);
-        }, cancellationToken);
+        stopwatch.Stop();
+        LogPhotosProcessedInElapsedMillisecondsMs(stopwatch.ElapsedMilliseconds);
+        
+        await _fileProcessor.DeletePhotos(photosToDelete, cancellationToken);
     }
 
     /// <summary>
@@ -146,7 +150,7 @@ public sealed partial class PhotosService : IPhotosService
         }
         catch (Exception e)
         {
-            var fileName = filePath.Split(Path.DirectorySeparatorChar).LastOrDefault();
+            var fileName = Path.GetFileName(filePath);
             _logger.LogError(e, "Error creating image slide for '{fileName}'", fileName);
             
             return null;

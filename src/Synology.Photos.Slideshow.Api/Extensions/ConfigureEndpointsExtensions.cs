@@ -31,7 +31,7 @@ public static class ConfigureEndpointsExtensions
                 .Produces<IList<string>>()
                 .Produces(StatusCodes.Status500InternalServerError);
             
-            group.MapPost("bulk-delete", DeletePhoto.PostAsync)
+            group.MapPost("bulk-delete", DeletePhotos.PostAsync)
                 .WithName("BulkDeletePhotos")
                 .Produces<IList<string>>()
                 .Produces<IList<string>>(StatusCodes.Status404NotFound)
