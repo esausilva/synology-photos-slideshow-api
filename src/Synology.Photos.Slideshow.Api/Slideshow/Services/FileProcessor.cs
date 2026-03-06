@@ -119,41 +119,46 @@ public sealed partial class FileProcessor : IFileProcessor
 
         await Task.Run(() =>
         {
-            var files = Directory.GetFiles(rootPath, "*.*", SearchOption.AllDirectories);
-
-            foreach (var file in files)
+            foreach (var file in Directory.EnumerateFiles(rootPath, "*.*", SearchOption.AllDirectories))
             {
-                if (file == Path.GetDirectoryName(file)) continue;
-
                 var fileName = Path.GetFileName(file);
-                var destinationPath = Path.Combine(rootPath, fileName);
 
                 if (fileName.Equals(macOsMetadataFile, StringComparison.OrdinalIgnoreCase))
                     continue;
+                
+                if (Path.GetDirectoryName(file) == rootPath) 
+                    continue;
 
-                if (File.Exists(destinationPath))
-                {
-                    var fileNameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
-                    var fileExt = Path.GetExtension(fileName);
-                    var counter = 1;
-
-                    while (File.Exists(destinationPath))
-                    {
-                        fileName = $"{fileNameWithoutExt}_{counter}{fileExt}";
-                        destinationPath = Path.Combine(rootPath, fileName);
-                        counter++;
-                    }
-                }
+                var destinationPath = ResolveDestinationPath(rootPath, fileName);
 
                 File.Move(file, destinationPath);
             }
 
-            var directories = Directory.GetDirectories(rootPath);
-            foreach (var dir in directories)
+            foreach (var dir in Directory.EnumerateDirectories(rootPath))
             {
                 Directory.Delete(dir, true);
             }
         }, cancellationToken);
+    }
+
+    private static string ResolveDestinationPath(string rootPath, string fileName)
+    {
+        var destination = Path.Combine(rootPath, fileName);
+
+        if (!File.Exists(destination))
+            return destination;
+        
+        var nameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
+        var ext = Path.GetExtension(fileName);
+        var counter = 1;
+
+        do
+        {
+            destination = Path.Combine(rootPath, $"{nameWithoutExt}_{counter}{ext}");
+            counter++;
+        } while (File.Exists(destination));
+
+        return destination;
     }
 
     [LoggerMessage(LogLevel.Information, "Cleaning directory '{RootPath}'")]
