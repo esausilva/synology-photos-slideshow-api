@@ -23,6 +23,7 @@ public static class ConfigurationExtensions
                 .AddHttpClient(SlideshowConstants.GeolocationHttpClient)
                 .AddStandardResilienceHandler();
             
+            services.AddSignalR();
             services.ConfigureRedis(configuration);
             
             services.AddHybridCache(options =>

@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.SignalR;
 using Polly;
 using Polly.Retry;
+using Synology.Photos.Slideshow.Api.Slideshow.Hubs;
 using Synology.Photos.Slideshow.Api.Slideshow.Messaging;
 using Synology.Photos.Slideshow.Api.Slideshow.Services;
 
@@ -9,6 +11,7 @@ public sealed class PhotoProcessingWorker : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IPhotoProcessingChannel _photoProcessingChannel;
+    private readonly IHubContext<SlideshowHub, ISlideshowHub> _hubContext;
     private readonly ILogger<PhotoProcessingWorker> _logger;
     private readonly ResiliencePipeline _resiliencePipeline;
     
@@ -17,16 +20,18 @@ public sealed class PhotoProcessingWorker : BackgroundService
     public PhotoProcessingWorker(
         IServiceScopeFactory scopeFactory,
         IPhotoProcessingChannel photoProcessingChannel,
+        IHubContext<SlideshowHub, ISlideshowHub> hubContext,
         ILogger<PhotoProcessingWorker> logger)
     {
         _scopeFactory = scopeFactory;
         _photoProcessingChannel = photoProcessingChannel;
+        _hubContext = hubContext;
         _logger = logger;
         _resiliencePipeline = CreateResiliencePipeline();
     }
 
     /// <summary>
-    /// Executes the main process of the PhotoProcessingService, handling incoming photo processing requests
+    /// Executes the main process of the PhotoProcessingWorker, handling incoming photo processing requests
     /// and processing them asynchronously while managing resilience and error handling.
     /// </summary>
     /// <param name="stoppingToken">
@@ -38,7 +43,7 @@ public sealed class PhotoProcessingWorker : BackgroundService
     /// </returns>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("PhotoProcessingService started, waiting for messages...");
+        _logger.LogInformation("PhotoProcessingWorker started, waiting for messages...");
         
         await foreach (var _ in _photoProcessingChannel.ReadAllAsync(stoppingToken))
         {
@@ -54,19 +59,21 @@ public sealed class PhotoProcessingWorker : BackgroundService
                     await photoService.ProcessPhotos(ct);
                 }, stoppingToken);
 
-                _logger.LogInformation("Photo processing completed successfully");
+                _logger.LogInformation("Photo processing completed successfully. Sending a refresh signal.");
                 
-                // TODO: Once SignalR is implemented, send a success message to the client to refresh the slideshow
+                await _hubContext.Clients.All.RefreshSlideshow();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred while processing photos");
+                const string errorMessage = "An error occurred while processing photos";
                 
-                // TODO: Once SignalR is implemented, send an error message to the client
+                _logger.LogError(ex, errorMessage);
+                
+                await _hubContext.Clients.All.PhotoProcessingError(errorMessage);
             }
         }
 
-        _logger.LogInformation("PhotoProcessingService stopped");
+        _logger.LogInformation("PhotoProcessingWorker stopped");
     }
     
     private ResiliencePipeline CreateResiliencePipeline()

@@ -33,7 +33,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors(Cors.FrontEndPolicyName);
-app.UseHttpsRedirection();
+// app.UseHttpsRedirection();
 app.UseExceptionHandler();
 app.ConfigureStaticFiles();
 app.UseSynologyAuthentication();

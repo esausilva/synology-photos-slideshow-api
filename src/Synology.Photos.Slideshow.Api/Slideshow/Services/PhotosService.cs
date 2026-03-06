@@ -108,8 +108,10 @@ public sealed partial class PhotosService : IPhotosService
                 .Select(t => t.Result)
                 .ToList();
         }, cancellationToken);
-
-        return slides;
+        
+        return (from slide in slides
+            where slide is not null
+            select slide).ToList();
     }
 
     private static (int scaledWidth, int scaledHeight) ScaleImageDimensions(Image image, double scale) =>
@@ -122,23 +124,33 @@ public sealed partial class PhotosService : IPhotosService
     /// <param name="filePath">The file path of the image to process.</param>
     /// <param name="cancellationToken">The cancellation token used to cancel the operation.</param>
     /// <returns>A task representing the asynchronous operation, containing the slide information for the specified image.</returns>
-    private async Task<SlidesResponse> CreateImageSlideInfo(string filePath, CancellationToken cancellationToken)
+    private async Task<SlidesResponse?> CreateImageSlideInfo(string filePath, CancellationToken cancellationToken)
     {
-        var fileName = Path.GetRelativePath(_rootPath, filePath);
-        var url = $"{SlideshowConstants.BaseRoute}/{fileName.Replace(Path.DirectorySeparatorChar, '/')}";
-        var imageInfo = await Image.IdentifyAsync(filePath, cancellationToken);
-        var exifProfile = imageInfo.Metadata.ExifProfile;
+        try
+        {
+            var fileName = Path.GetRelativePath(_rootPath, filePath);
+            var url = $"{SlideshowConstants.BaseRoute}/{fileName.Replace(Path.DirectorySeparatorChar, '/')}";
+            var imageInfo = await Image.IdentifyAsync(filePath, cancellationToken);
+            var exifProfile = imageInfo.Metadata.ExifProfile;
 
-        if (exifProfile is null)
-            return new SlidesResponse(url, "", "", "");
+            if (exifProfile is null)
+                return new SlidesResponse(url, "", "", "");
 
-        var photoDateTime = GetPhotoDateTimeWithOffset(exifProfile);
-        var dateTaken = photoDateTime?.ToString("yyyy-MM-dd HH:mm:ss zzz") ?? string.Empty;
-        var (latitude, longitude) = GetLatitudeAndLongitude(exifProfile);
-        var googleMapsLink = GetGoogleMapsLink(latitude, longitude);
-        var location = await GetLocation(latitude, longitude, cancellationToken);
+            var photoDateTime = GetPhotoDateTimeWithOffset(exifProfile);
+            var dateTaken = photoDateTime?.ToString("yyyy-MM-dd HH:mm:ss zzz") ?? string.Empty;
+            var (latitude, longitude) = GetLatitudeAndLongitude(exifProfile);
+            var googleMapsLink = GetGoogleMapsLink(latitude, longitude);
+            var location = await GetLocation(latitude, longitude, cancellationToken);
 
-        return new SlidesResponse(url, dateTaken, googleMapsLink, location);
+            return new SlidesResponse(url, dateTaken, googleMapsLink, location);
+        }
+        catch (Exception e)
+        {
+            var fileName = filePath.Split(Path.DirectorySeparatorChar).LastOrDefault();
+            _logger.LogError(e, "Error creating image slide for '{fileName}'", fileName);
+            
+            return null;
+        }
     }
 
     /// <summary>

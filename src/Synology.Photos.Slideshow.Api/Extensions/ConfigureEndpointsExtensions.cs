@@ -1,4 +1,5 @@
 using Synology.Photos.Slideshow.Api.Slideshow.Endpoints;
+using Synology.Photos.Slideshow.Api.Slideshow.Hubs;
 
 namespace Synology.Photos.Slideshow.Api.Extensions;
 
@@ -8,6 +9,8 @@ public static class ConfigureEndpointsExtensions
     {
         public void ConfigureEndpoints()
         {
+            app.MapHub<SlideshowHub>("/hubs/slideshow");
+            
             app.MapGroup("photos")
                 .WithPhotosPrefix();
         }
