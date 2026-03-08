@@ -1,27 +1,36 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
+using Synology.Photos.Slideshow.Api.Slideshow.Endpoints.Request;
+using Synology.Photos.Slideshow.Api.Slideshow.Hubs;
 using Synology.Photos.Slideshow.Api.Slideshow.Services;
 
 namespace Synology.Photos.Slideshow.Api.Slideshow.Endpoints;
 
 public static class DeletePhotos
 {
-    public static async Task<IResult> PostAsync([FromBody] IList<string> request,
+    public static async Task<IResult> PostAsync([FromBody] DeletePhotosRequest request,
         IPhotosService photosService, 
         IFileProcessor fileProcessor,
+        IHubContext<SlideshowHub, ISlideshowHub> hubContext,
         CancellationToken cancellationToken)
     {
         var slides = await photosService.GetSlides(cancellationToken);
         var unmatchedPhotos = 
-            (from currentPhoto in request 
+            (from currentPhoto in request.PhotoNames
                 let photoExists = slides.Any(s => s.RelativeUrl.Contains(currentPhoto, StringComparison.OrdinalIgnoreCase)) 
                 where !photoExists 
                 select currentPhoto).ToList();
-        var photosToDelete = request.Where(p => !unmatchedPhotos.Contains(p)).ToList();
+        var photosToDelete = request.PhotoNames.Where(p => !unmatchedPhotos.Contains(p)).ToList();
         
         if (photosToDelete.Count == 0)
             return Results.NotFound();
 
         await fileProcessor.DeletePhotos(photosToDelete, cancellationToken);
+
+        if (request.SignalRConnectionId is not null)
+            await hubContext.Clients.AllExcept(request.SignalRConnectionId).RefreshSlideshow();
+        else
+            await hubContext.Clients.All.RefreshSlideshow();
         
         return Results.Ok(new { unmatchedPhotos });
     }

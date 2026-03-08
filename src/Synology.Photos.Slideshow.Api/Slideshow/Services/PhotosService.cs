@@ -7,7 +7,7 @@ using SixLabors.ImageSharp.Metadata.Profiles.Exif;
 using SixLabors.ImageSharp.Processing;
 using Synology.Photos.Slideshow.Api.Configuration;
 using Synology.Photos.Slideshow.Api.Constants;
-using Synology.Photos.Slideshow.Api.Slideshow.Response;
+using Synology.Photos.Slideshow.Api.Slideshow.Endpoints.Response;
 
 namespace Synology.Photos.Slideshow.Api.Slideshow.Services;
 
@@ -97,8 +97,8 @@ public sealed partial class PhotosService : IPhotosService
     /// Filters and processes photos from the configured directory, excluding thumbnails and unsupported formats.
     /// </summary>
     /// <param name="cancellationToken">The cancellation token used to cancel the operation.</param>
-    /// <returns>A task returning a read-only list of <see cref="SlidesResponse"/> objects containing photo metadata.</returns>
-    public async Task<IReadOnlyList<SlidesResponse>> GetSlides(CancellationToken cancellationToken)
+    /// <returns>A task returning a read-only list of <see cref="SlideResponse"/> objects containing photo metadata.</returns>
+    public async Task<IReadOnlyList<SlideResponse>> GetSlides(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Retrieving photo metadata and creating relative URLs");
 
@@ -126,7 +126,7 @@ public sealed partial class PhotosService : IPhotosService
     /// <param name="filePath">The file path of the image to process.</param>
     /// <param name="cancellationToken">The cancellation token used to cancel the operation.</param>
     /// <returns>A task representing the asynchronous operation, containing the slide information for the specified image.</returns>
-    private async Task<SlidesResponse?> CreateImageSlideInfo(string filePath, CancellationToken cancellationToken)
+    private async Task<SlideResponse?> CreateImageSlideInfo(string filePath, CancellationToken cancellationToken)
     {
         try
         {
@@ -136,7 +136,7 @@ public sealed partial class PhotosService : IPhotosService
             var exifProfile = imageInfo.Metadata.ExifProfile;
 
             if (exifProfile is null)
-                return new SlidesResponse(url, "", "", "");
+                return new SlideResponse(url, "", "", "");
 
             var photoDateTime = GetPhotoDateTimeWithOffset(exifProfile);
             var dateTaken = photoDateTime?.ToString("yyyy-MM-dd HH:mm:ss zzz") ?? string.Empty;
@@ -144,7 +144,7 @@ public sealed partial class PhotosService : IPhotosService
             var googleMapsLink = GetGoogleMapsLink(latitude, longitude);
             var location = await GetLocation(latitude, longitude, cancellationToken);
 
-            return new SlidesResponse(url, dateTaken, googleMapsLink, location);
+            return new SlideResponse(url, dateTaken, googleMapsLink, location);
         }
         catch (Exception e)
         {

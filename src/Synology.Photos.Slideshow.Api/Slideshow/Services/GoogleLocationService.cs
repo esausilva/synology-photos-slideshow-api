@@ -2,7 +2,7 @@ using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Options;
 using Synology.Photos.Slideshow.Api.Configuration;
 using Synology.Photos.Slideshow.Api.Constants;
-using Synology.Photos.Slideshow.Api.Slideshow.Response;
+using Synology.Photos.Slideshow.Api.Slideshow.Services.Dtos;
 
 namespace Synology.Photos.Slideshow.Api.Slideshow.Services;
 
@@ -63,7 +63,7 @@ public partial class GoogleLocationService : ILocationService
 
         try
         {
-            var response = await httpClient.GetFromJsonAsync<GoogleGeocodeResponse>(geocodeUrl, cancellationToken);
+            var response = await httpClient.GetFromJsonAsync<GoogleGeocodeDto>(geocodeUrl, cancellationToken);
 
             if (response is not { Status: "OK", Results.Count: > 0 })
             {
