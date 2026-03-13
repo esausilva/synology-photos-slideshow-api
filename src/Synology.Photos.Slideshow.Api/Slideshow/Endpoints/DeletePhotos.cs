@@ -1,5 +1,7 @@
+using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
+using Synology.Photos.Slideshow.Api.Extensions;
 using Synology.Photos.Slideshow.Api.Slideshow.Endpoints.Request;
 using Synology.Photos.Slideshow.Api.Slideshow.Hubs;
 using Synology.Photos.Slideshow.Api.Slideshow.Services;
@@ -12,8 +14,14 @@ public static class DeletePhotos
         IPhotosService photosService, 
         IFileProcessor fileProcessor,
         IHubContext<SlideshowHub, ISlideshowHub> hubContext,
+        IValidator<DeletePhotosRequest> validator,
         CancellationToken cancellationToken)
     {
+        var validationResult = await validator.ValidateAsync(request, cancellationToken);
+
+        if (!validationResult.IsValid)
+            return Results.ValidationProblem(validationResult.BuildValidationErrors());
+        
         var slides = await photosService.GetSlides(cancellationToken);
         var unmatchedPhotos = 
             (from currentPhoto in request.PhotoNames

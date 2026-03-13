@@ -16,6 +16,9 @@ The API is intended to run on your Synology NAS and be accessed only from your l
     - [Download Photos](#download-photos)
     - [Get Photo Slides](#get-photo-slides)
     - [Bulk Delete Photos](#bulk-delete-photos)
+  - [Real-time Updates](#real-time-updates)
+    - [Hub Endpoint](#hub-endpoint)
+    - [Client Methods](#client-methods)
   - [Logging](#logging)
   - [Local Development](#local-development)
   - [Docker (Local)](#docker-local)
@@ -49,10 +52,11 @@ GET /photos/download
 - Randomly selects photos from `SynoApiOptions.FileStationSearchFolders`.
   - Typically, the photos would be located on the `/photo` volume on your NAS or your home share. e.g. `/[username]/Photos/PhotoLibrary`.
 - Clears the download folder first.
-- Uses Synology credentials
-- Downloads, unzips, flattens, and converts to WebP.
+- Uses Synology credentials.
+- Downloads, unzips, flattens, and prepares photos for processing.
+- Triggers a background worker to convert photos to WebP.
 
-This endpoint is process-intensive and can take a few minutes to complete. I will break it up later into background services after implementing real-time client notifications.
+This endpoint is asynchronous. It returns immediately after the photos are downloaded and the background processing is triggered. Clients can listen for real-time updates via [SignalR](#real-time-updates) to know when processing is complete.
 
 Refer to "[Local Development](#local-development)", "[Docker Local](#docker-local)", and "[Deployment](#deployment-to-your-synology-nas-device)" for more information on configuration.
 
@@ -144,18 +148,22 @@ POST /photos/bulk-delete
 
 This endpoint deletes photos from the slideshow folder. 
 
-Accepts the list of photo names to delete.
+Accepts the list of photo names to delete and an optional SignalR connection ID to avoid sending a refresh signal to the requester.
 
-The request body is an array of file names:
+The request body is a JSON object:
 
-```js
-[
-  "20240303_154856.jpg",
-  "20240818_154700.jpg"
-]
+```json
+{
+  "photoNames": [
+    "20240303_154856.jpg",
+    "20240818_154700.jpg"
+  ],
+  "signalRConnectionId": "optional-connection-id"
+}
 ```
 
 Behavior:
+- Validates the request using Fluent Validation (e.g., `PhotoNames` is mandatory).
 - Deletes only from the local slideshow folder (not from the original NAS location).
 - Returns a list of `unmatchedPhotos`.
 - Returns `404` if nothing matched.
@@ -165,8 +173,25 @@ Behavior:
 | Status Code | Description                         |
 | :---------- |:------------------------------------|
 | `200`       | Success (with `unmatchedPhotos`)    |
+| `400`       | Bad Request (Validation Errors)     |
 | `404`       | None matched                        |
 | `500`       | Unexpected errors (Problem Details) |
+
+Example of the validation error response:
+
+```json
+{
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+  "title": "One or more validation errors occurred.",
+  "status": 400,
+  "errors": {
+    "PhotoNames": [
+      "'Photo Names' must not be empty."
+    ]
+  },
+  "traceId": "00-4cda575df9037c39e089b9f0f240b728-17f61773bce7cd46-00"
+}
+```
 
 An example of the success response:
 
@@ -184,6 +209,24 @@ An example of the success response:
   "unmatchedPhotos": []
 }
 ```
+
+## Real-time Updates
+
+The API uses SignalR to provide real-time updates to connected clients. 
+
+### Hub Endpoint
+
+```text
+[Base URL]/hubs/slideshow
+```
+
+### Client Methods
+The following methods are invoked on the client:
+
+| Method                 | Description                                                                 |
+|:-----------------------|:----------------------------------------------------------------------------|
+| `RefreshSlideshow`     | Triggered when photo processing is complete or when photos are deleted.     |
+| `PhotoProcessingError` | Triggered if an error occurs during background photo processing.            |
 
 ## Logging
 

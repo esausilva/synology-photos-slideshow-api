@@ -1,3 +1,4 @@
+using FluentValidation;
 using Microsoft.Extensions.Caching.Hybrid;
 using Synology.Photos.Slideshow.Api.Configuration;
 using Synology.Photos.Slideshow.Api.Constants;
@@ -23,6 +24,7 @@ public static class ConfigurationExtensions
                 .AddHttpClient(SlideshowConstants.GeolocationHttpClient)
                 .AddStandardResilienceHandler();
             
+            services.AddValidatorsFromAssemblyContaining<Program>();
             services.AddSignalR();
             services.ConfigureRedis(configuration);
             
