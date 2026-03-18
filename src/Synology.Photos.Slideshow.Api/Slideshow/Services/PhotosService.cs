@@ -54,7 +54,7 @@ public sealed partial class PhotosService : IPhotosService
     /// <returns>A task representing the asynchronous operation.</returns>
     public async Task ProcessPhotos(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Processing photos");
+        _logger.LogInformation("Converting photos to web format");
 
         var stopwatch = Stopwatch.StartNew();
 

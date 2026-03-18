@@ -23,7 +23,8 @@ services
     .AddOpenApi()
     .AddExceptionHandler<GlobalExceptionHandlerMiddleware>()
     .AddProblemDetails()
-    .ConfigureSynologyApiSdkDependencies(configuration);
+    .ConfigureSynologyApiSdkDependencies(configuration)
+    .AddHangfireServices();
 
 var app = builder.Build();
 
@@ -38,4 +39,5 @@ app.UseExceptionHandler();
 app.ConfigureStaticFiles();
 app.UseSynologyAuthentication();
 app.ConfigureEndpoints();
+app.UseHangfireScheduling();
 app.Run();

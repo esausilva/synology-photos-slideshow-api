@@ -58,7 +58,7 @@ public sealed partial class FileProcessor : IFileProcessor
     /// <param name="cancellationToken"></param>
     public async Task ProcessZipFile(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Processing zip file");
+        _logger.LogInformation("Processing downloaded zip file");
 
         var zipPath = Path.Combine(_synoApiOptions.CurrentValue.DownloadAbsolutePath,
             _synoApiOptions.CurrentValue.DownloadFileName);

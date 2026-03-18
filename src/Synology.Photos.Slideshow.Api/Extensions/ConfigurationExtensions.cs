@@ -74,6 +74,11 @@ public static class ConfigurationExtensions
                 .AddOptionsWithValidateOnStart<GoogleMapsOptions>()
                 .ValidateDataAnnotations()
                 .Bind(configuration.GetSection(nameof(GoogleMapsOptions)));
+
+            services
+                .AddOptionsWithValidateOnStart<PhotoDownloadJobOptions>()
+                .ValidateDataAnnotations()
+                .Bind(configuration.GetSection(nameof(PhotoDownloadJobOptions)));
         }
         
         private void ConfigureLocationService(ConfigurationManager configuration)

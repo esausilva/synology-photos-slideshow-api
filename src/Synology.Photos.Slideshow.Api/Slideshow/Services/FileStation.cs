@@ -15,7 +15,7 @@ namespace Synology.Photos.Slideshow.Api.Slideshow.Services;
 /// such as downloading files. This class provides methods to facilitate downloading images or
 /// zipped files from the FileStation API resources.
 /// </summary>
-public sealed class FileStation : IFileStation
+public sealed partial class FileStation : IFileStation
 {
     private readonly ISynologyApiInfoProvider _apiInfoProvider;
     private readonly ISynologyApiService _apiService;
@@ -51,6 +51,8 @@ public sealed class FileStation : IFileStation
     /// <returns>A task that represents the asynchronous download operation.</returns>
     public async Task Download(IList<FileStationItem> fileStationItems, CancellationToken cancellationToken)
     {
+        LogDownloadingPhotocountPhotosFromNas(fileStationItems.Count);
+        
         await _fileProcessor.CleanDownloadDirectory(cancellationToken);
         
         var downloadRequest = new FileStationDownloadRequest(
@@ -79,4 +81,7 @@ public sealed class FileStation : IFileStation
         
         return apiVersionInfo.SynoFileStationDownload.MaxVersion;
     }
+
+    [LoggerMessage(LogLevel.Information, "Downloading {PhotoCount} photos from NAS")]
+    partial void LogDownloadingPhotocountPhotosFromNas(int photoCount);
 }
