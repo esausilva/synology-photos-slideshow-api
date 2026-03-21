@@ -2,8 +2,10 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Synology.Photos.Slideshow.Api.Configuration;
 
-public record PhotoDownloadJobOptions
+public record PhotoDownloadScheduledJobOptions
 {
+    public bool Enabled { get; init; } = true;
+    
     [Required]
     [Range(0, 6)]
     public int DayOfWeek { get; init; }

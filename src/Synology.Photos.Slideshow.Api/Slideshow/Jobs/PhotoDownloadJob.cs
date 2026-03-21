@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
+using Synology.Photos.Slideshow.Api.Slideshow.Auth;
 using Synology.Photos.Slideshow.Api.Slideshow.Hubs;
 using Synology.Photos.Slideshow.Api.Slideshow.Services;
 
@@ -26,14 +27,18 @@ public class PhotoDownloadJob
 
         try
         {
-            using var scope = _serviceScopeFactory.CreateScope();
+            await using var scope = _serviceScopeFactory.CreateAsyncScope();
+            
+            var authContext = scope.ServiceProvider.GetRequiredService<IBackgroundJobSynologyAuthentication>();
+            await authContext.AuthenticateAsync(cancellationToken);
             
             var photoSearchService = scope.ServiceProvider.GetRequiredService<INasPhotoSearchService>();
             var fileStation = scope.ServiceProvider.GetRequiredService<IFileStation>();
             var fileProcessor = scope.ServiceProvider.GetRequiredService<IFileProcessor>();
             var photoService = scope.ServiceProvider.GetRequiredService<IPhotosService>();
 
-            var fileStationItemsResult = await photoSearchService.SearchPhotos(cancellationToken);
+            var synoToken = authContext.GetSynoToken()!;
+            var fileStationItemsResult = await photoSearchService.SearchPhotos(synoToken, cancellationToken);
 
             if (fileStationItemsResult.IsFailed)
             {
@@ -43,7 +48,7 @@ public class PhotoDownloadJob
                 return;
             }
 
-            await fileStation.Download(fileStationItemsResult.Value, cancellationToken);
+            await fileStation.Download(fileStationItemsResult.Value, synoToken, cancellationToken);
             await fileProcessor.ProcessZipFile(cancellationToken);
             await photoService.ProcessPhotos(cancellationToken);
 

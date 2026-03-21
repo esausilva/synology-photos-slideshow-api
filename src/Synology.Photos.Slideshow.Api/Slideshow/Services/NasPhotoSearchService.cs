@@ -27,6 +27,8 @@ public sealed partial class NasPhotoSearchService : INasPhotoSearchService
 
     private const int SingleItemLimit = 1;
     private const int SearchPollingDelayMs = 3_000;
+    
+    private string? _synoToken;
 
     public NasPhotoSearchService(
         ISynologyApiInfoProvider apiInfoProvider, 
@@ -54,6 +56,37 @@ public sealed partial class NasPhotoSearchService : INasPhotoSearchService
     /// - Failure with an error message describing the problem.
     /// </returns>
     public async Task<Result<IList<FileStationItem>>> SearchPhotos(CancellationToken cancellationToken)
+    {
+        _synoToken = _authContext.GetSynoToken();
+        return await SearchPhotosCore(cancellationToken);
+    }
+
+    /// <summary>
+    /// Retrieves a collection of photos or an error result if the operation fails.
+    /// </summary>
+    /// <param name="synoToken">The authentication token required to access the Synology File Station.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>
+    /// A Result representing either:
+    /// - Success with a collection of FileStationItem or
+    /// - Failure with an error message describing the problem.
+    /// </returns>
+    public async Task<Result<IList<FileStationItem>>> SearchPhotos(string synoToken, CancellationToken cancellationToken)
+    {
+        _synoToken = synoToken;
+        return await SearchPhotosCore(cancellationToken);
+    }
+
+    /// <summary>
+    /// Executes the core logic for searching photos on a Synology NAS, given an optional authentication token and cancellation token.
+    /// </summary>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>
+    /// A Result containing either:
+    /// - A successful collection of FileStationItem objects representing the photos found, or
+    /// - A failure with error details describing why the operation did not succeed.
+    /// </returns>
+    private async Task<Result<IList<FileStationItem>>> SearchPhotosCore(CancellationToken cancellationToken)
     {
         var searchTimeout = TimeSpan.FromSeconds(_synoApiOptions.CurrentValue.ApiSearchTimeoutInSeconds);
         using var timeoutCts = new CancellationTokenSource(searchTimeout);
@@ -85,7 +118,6 @@ public sealed partial class NasPhotoSearchService : INasPhotoSearchService
             }
 
             var photosCount = photoCountResult.Value;
-
             var fileStationItems = await GetRandomFileStationItems(taskId, apiVersion, photosCount, combinedToken);
 
             await CleanupSearch(taskId, apiVersion, CancellationToken.None);
@@ -140,7 +172,7 @@ public sealed partial class NasPhotoSearchService : INasPhotoSearchService
         return new FileStationSearchRequest(
             version: apiVersion,
             method: SynologyApiMethods.FileStation.Search_Start,
-            synoToken: _authContext.GetSynoToken()!,
+            synoToken: _synoToken!,
             fileType: "file",
             folderPaths: _synoApiOptions.CurrentValue.FileStationSearchFolders
         );
@@ -247,7 +279,7 @@ public sealed partial class NasPhotoSearchService : INasPhotoSearchService
         return new FileStationSearchRequest(
             version: apiVersion,
             method: SynologyApiMethods.FileStation.Search_List,
-            synoToken: _authContext.GetSynoToken()!,
+            synoToken: _synoToken!,
             limit: SingleItemLimit,
             taskId: taskId,
             offset: offset
@@ -262,7 +294,7 @@ public sealed partial class NasPhotoSearchService : INasPhotoSearchService
         var cleanRequest = new FileStationSearchRequest(
             version: apiVersion,
             method: SynologyApiMethods.FileStation.Search_Clean,
-            synoToken: _authContext.GetSynoToken()!,
+            synoToken: _synoToken!,
             taskId: taskId
         );
         var searchUrl = _requestBuilder.BuildUrl(cleanRequest);

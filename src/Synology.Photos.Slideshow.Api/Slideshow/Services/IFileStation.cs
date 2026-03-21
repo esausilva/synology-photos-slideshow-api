@@ -5,4 +5,5 @@ namespace Synology.Photos.Slideshow.Api.Slideshow.Services;
 public interface IFileStation
 {
     Task Download(IList<FileStationItem> fileStationItems, CancellationToken cancellationToken);
+    Task Download(IList<FileStationItem> fileStationItems, string synoToken, CancellationToken cancellationToken);
 }

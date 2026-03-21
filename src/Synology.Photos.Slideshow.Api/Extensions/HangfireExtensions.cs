@@ -31,17 +31,31 @@ public static class HangfireExtensions
     {
         public IApplicationBuilder UseHangfireScheduling()
         {
-            app.UseHangfireDashboard("/jobs");
-            
             var serviceProvider = app.ApplicationServices;
-            var jobOptions = serviceProvider.GetRequiredService<IOptions<PhotoDownloadJobOptions>>().Value;
-            // var schedule = Cron.Weekly((DayOfWeek)jobOptions.DayOfWeek, jobOptions.Hour, jobOptions.Minute);
-            var schedule = Cron.Weekly(DayOfWeek.Tuesday, 7, 24);
+            
+            app.UseHangfireDashboard("/jobs");
+            app.ConfigurePhotoDownloadJob(serviceProvider);
+            
+            return app;
+        }
+
+        private IApplicationBuilder ConfigurePhotoDownloadJob(IServiceProvider serviceProvider)
+        {
+            var jobOptions = serviceProvider.GetRequiredService<IOptions<PhotoDownloadScheduledJobOptions>>().Value;
+            
+            if (!jobOptions.Enabled)
+                return app;
+            
+            var cronSchedule = Cron.Weekly((DayOfWeek)jobOptions.DayOfWeek, jobOptions.Hour, jobOptions.Minute);
+            
+            // For local testing -- uncomment
+            // cronSchedule = Cron.Weekly(DayOfWeek.Wednesday, 20, 45);
+            // cronSchedule = Cron.MinuteInterval(5);
             
             RecurringJob.AddOrUpdate<PhotoDownloadJob>(
                 "photo-download-job",
                 job => job.Execute(CancellationToken.None),
-                schedule,
+                cronSchedule,
                 new RecurringJobOptions
                 {
                     TimeZone = TimeZoneInfo.Local

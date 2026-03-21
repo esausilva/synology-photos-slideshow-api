@@ -50,6 +50,29 @@ public sealed partial class FileStation : IFileStation
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
     /// <returns>A task that represents the asynchronous download operation.</returns>
     public async Task Download(IList<FileStationItem> fileStationItems, CancellationToken cancellationToken)
+        => await DownloadCore(fileStationItems, _authContext.GetSynoToken(), cancellationToken);
+
+    /// <summary>
+    /// Downloads files from Synology File Station based on the given file station items.
+    /// </summary>
+    /// <param name="fileStationItems">A list of file station items representing the files to be downloaded.</param>
+    /// <param name="synoToken">The authentication token required to access the Synology File Station.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>A task that represents the asynchronous file download operation.</returns>
+    public async Task Download(IList<FileStationItem> fileStationItems, string synoToken,
+        CancellationToken cancellationToken)
+        => await DownloadCore(fileStationItems, synoToken, cancellationToken);
+
+    /// <summary>
+    /// Executes the core logic for downloading files from Synology File Station, including cleaning the download directory,
+    /// sending a request to the API, and saving the retrieved files locally.
+    /// </summary>
+    /// <param name="fileStationItems">A list of file station items representing the files to be downloaded.</param>
+    /// <param name="synoToken">The authentication token required to access Synology File Station.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests during the download operation.</param>
+    /// <returns>A task that represents the asynchronous operation of downloading files.</returns>
+    private async Task DownloadCore(IList<FileStationItem> fileStationItems, string? synoToken,
+        CancellationToken cancellationToken)
     {
         LogDownloadingPhotocountPhotosFromNas(fileStationItems.Count);
         
@@ -58,7 +81,7 @@ public sealed partial class FileStation : IFileStation
         var downloadRequest = new FileStationDownloadRequest(
             version: await GetApiVersion(cancellationToken),
             method: SynologyApiMethods.FileStation.Download_Download,
-            synoToken: _authContext.GetSynoToken()!,
+            synoToken: synoToken!,
             mode: "download",
             path: fileStationItems.Select(p => p.Path).ToList());
         var downloadUrl = _requestBuilder.BuildUrl(downloadRequest);
@@ -71,7 +94,7 @@ public sealed partial class FileStation : IFileStation
         
         _logger.LogDebug("Downloaded photos");
     }
-    
+
     /// <summary>
     /// Gets the appropriate API version for file station operations.
     /// </summary>

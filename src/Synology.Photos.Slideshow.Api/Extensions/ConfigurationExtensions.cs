@@ -40,6 +40,7 @@ public static class ConfigurationExtensions
             });
         
             services.AddScoped<ISynologyAuthenticationContext, SynologyAuthenticationContext>();
+            services.AddTransient<IBackgroundJobSynologyAuthentication, BackgroundJobSynologyAuthentication>();
             services.AddSingleton<ISynologyApiInfoProvider, SynologyApiInfoProvider>();
             services.AddSingleton<IPhotoProcessingChannel, PhotoProcessingChannel>();
             services.AddTransient<INasPhotoSearchService, NasPhotoSearchService>();
@@ -76,9 +77,9 @@ public static class ConfigurationExtensions
                 .Bind(configuration.GetSection(nameof(GoogleMapsOptions)));
 
             services
-                .AddOptionsWithValidateOnStart<PhotoDownloadJobOptions>()
+                .AddOptionsWithValidateOnStart<PhotoDownloadScheduledJobOptions>()
                 .ValidateDataAnnotations()
-                .Bind(configuration.GetSection(nameof(PhotoDownloadJobOptions)));
+                .Bind(configuration.GetSection(nameof(PhotoDownloadScheduledJobOptions)));
         }
         
         private void ConfigureLocationService(ConfigurationManager configuration)

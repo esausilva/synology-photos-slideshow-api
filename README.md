@@ -19,6 +19,8 @@ The API is intended to run on your Synology NAS and be accessed only from your l
   - [Real-time Updates](#real-time-updates)
     - [Hub Endpoint](#hub-endpoint)
     - [Client Methods](#client-methods)
+  - [Features](#features)
+    - [Scheduled Photo Download Job](#scheduled-photo-download-job)
   - [Logging](#logging)
   - [Local Development](#local-development)
   - [Docker (Local)](#docker-local)
@@ -228,6 +230,43 @@ The following methods are invoked on the client:
 | `RefreshSlideshow`     | Triggered when photo processing is complete or when photos are deleted.     |
 | `PhotoProcessingError` | Triggered if an error occurs during background photo processing.            |
 
+## Features
+
+### Scheduled Photo Download Job
+
+The API includes a **scheduled background job** powered by **Hangfire** that automatically downloads and processes new photo sets at configurable intervals. This eliminates the need to manually trigger the `/photos/download` endpoint.
+
+#### Configuration Options
+
+The scheduled job is fully configurable via the `PhotoDownloadScheduledJobOptions` section in `appsettings.json` or environment variables:
+
+| Option      | Type    | Description                                                                                      | Valid Range | Default |
+|:------------|:--------|:-------------------------------------------------------------------------------------------------|:------------|:--------|
+| `Enabled`   | Boolean | Enables or disables the scheduled job.                                                           | true/false  | `true`  |
+| `DayOfWeek` | Integer | Day of the week to run the job (0 = Sunday, 1 = Monday, ..., 6 = Saturday).                     | 0-6         | N/A     |
+| `Hour`      | Integer | Hour of the day to run the job (24-hour format).                                                 | 0-23        | N/A     |
+| `Minute`    | Integer | Minute of the hour to run the job.                                                               | 0-59        | N/A     |
+
+Example configuration in `appsettings.json`:
+
+```json
+{
+  "PhotoDownloadScheduledJobOptions": {
+    "Enabled": true,
+    "DayOfWeek": 0,
+    "Hour": 12,
+    "Minute": 3
+  }
+}
+```
+
+This example schedules the job to run every **Sunday at 12:03 PM** in the server's local time zone.
+
+**Notes:**
+- Set `Enabled` to `false` to disable the scheduled job without removing the configuration.
+- The job uses the server's local time zone for scheduling.
+- The Hangfire dashboard is available at `/jobs` for monitoring job execution history and status.
+
 ## Logging
 
 Logs are written to `./logs` with daily rolling JSON files (for example, `api-logs_20260221.json`).
@@ -263,6 +302,12 @@ Update the following app settings in `appsettings.json` or create a .NET User Se
     "ApiKey": "<<GOOGLE_MAPS_API_KEY>>",
     "EnableMocks": true
   },
+  "PhotoDownloadScheduledJobOptions": {
+    "Enabled": true,
+    "DayOfWeek": 0,
+    "Hour": 12,
+    "Minute": 3
+  },
   "ConnectionStrings": {
     "Redis": "<<REDIS_CONNECTION_STRING>>"
   }
@@ -282,6 +327,10 @@ Update the following app settings in `appsettings.json` or create a .NET User Se
 | `ThirdPartyServices.EnableDistributedCache` | Enable Redis distributed cache to speed up photo location lookup | **false** (default).                                                               |
 | `GoogleMapsOptions.ApiKey`                  | Google Maps API key                                              | Your API key.                                                                      |
 | `GoogleMapsOptions.EnableMocks`             | Enable mock Google Maps API responses for testing                | **true** (default).                                                                |
+| `PhotoDownloadScheduledJobOptions.Enabled`  | Enable or disable the scheduled photo download job               | **true** (default).                                                                |
+| `PhotoDownloadScheduledJobOptions.DayOfWeek`| Day of the week to run the job (0 = Sunday, 6 = Saturday)        | 0-6                                                                                |
+| `PhotoDownloadScheduledJobOptions.Hour`     | Hour of the day to run the job (24-hour format)                  | 0-23                                                                               |
+| `PhotoDownloadScheduledJobOptions.Minute`   | Minute of the hour to run the job                                | 0-59                                                                               |
 | `ConnectionStrings.Redis`                   | Redis connection string                                          | e.g.,`localhost:6379,abortConnect=false,connectTimeout=10000`                      |
 
 Refer to [Endpoints](#endpoints) on how to call the API endpoints.
@@ -320,6 +369,10 @@ services:
       - ThirdPartyServices:EnableGeolocation=true
       - ThirdPartyServices:EnableDistributedCache=true
       - GoogleMapsOptions:ApiKey=<<GOOGLE_MAPS_API_KEY>>
+      - PhotoDownloadScheduledJobOptions:Enabled=true
+      - PhotoDownloadScheduledJobOptions:DayOfWeek=0
+      - PhotoDownloadScheduledJobOptions:Hour=12
+      - PhotoDownloadScheduledJobOptions:Minute=3
       - ConnectionStrings:Redis=redis.slideshow:6379,abortConnect=false,connectTimeout=10000
     volumes:
       - ./.slides:/app/slides
@@ -407,6 +460,10 @@ The environment variables will be as follows:
 | ThirdPartyServices:EnableGeolocation      | true                                                       |
 | ThirdPartyServices:EnableDistributedCache | true                                                       |
 | GoogleMapsOptions:ApiKey                  | [[GOOGLE_MAPS_API_KEY]]                                    |
+| PhotoDownloadScheduledJobOptions:Enabled  | true                                                       |
+| PhotoDownloadScheduledJobOptions:DayOfWeek| 0                                                          |
+| PhotoDownloadScheduledJobOptions:Hour     | 12                                                         |
+| PhotoDownloadScheduledJobOptions:Minute   | 3                                                          |
 | ConnectionStrings:Redis                   | [[SERVER_IP]]:6379,abortConnect=false,connectTimeout=10000 |
 
 Refer to [Photo Location](./docs/photo-location.md) and [Redis](./docs/redis.md) for geolocation and caching, including getting the Google Maps API.
@@ -423,8 +480,8 @@ I would like to add the following features (in no particular order):
 
 | Feature                     | Description                                                                                                                                     | Status |
 | :-------------------------- |:------------------------------------------------------------------------------------------------------------------------------------------------|:-------|
-| **Scheduled Jobs**          | Automates downloading new photo sets in the background at set intervals.                                                                        |        |
-| **Real-time Notifications** | Uses SignalR or SSE to notify the client when new photos are available. A predecessor to this is to have the background job feature completed.  |        |
+| **Scheduled Jobs**          | Automates downloading new photo sets in the background at set intervals.                                                                        | ✅     |
+| **Real-time Notifications** | Uses SignalR or SSE to notify the client when new photos are available. A predecessor to this is to have the background job feature completed.  | ✅     |
 | **Permanent Folder**        | A dedicated folder for specific photos (e.g., recent trips) that bypasses the auto-clean process.                                               |        |
 | **Delete Endpoint**         | Allows removing specific photos from the slideshow cache without deleting the original NAS files.                                               | ✅     |
 | **Metadata Refactoring**    | Updates endpoints to include photo date, location, and mapping data.                                                                            | ✅     |
