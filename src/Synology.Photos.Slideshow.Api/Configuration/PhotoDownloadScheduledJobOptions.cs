@@ -17,4 +17,8 @@ public record PhotoDownloadScheduledJobOptions
     [Required]
     [Range(0, 59)]
     public int Minute { get; init; }
+    
+    [Required]
+    [MinLength(1)]
+    public required string TimeZoneId { get; init; }
 }

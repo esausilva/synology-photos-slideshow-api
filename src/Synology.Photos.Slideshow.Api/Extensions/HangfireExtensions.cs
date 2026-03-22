@@ -33,7 +33,12 @@ public static class HangfireExtensions
         {
             var serviceProvider = app.ApplicationServices;
             
-            app.UseHangfireDashboard("/jobs");
+            app.UseHangfireDashboard("/jobs", new DashboardOptions()
+            {
+                // If this was a client facing production, we'd want a real auth filter here,
+                // but this API is meant to be run on a local network in Docker
+                Authorization = []
+            });
             app.ConfigurePhotoDownloadJob(serviceProvider);
             
             return app;
@@ -51,14 +56,14 @@ public static class HangfireExtensions
             // For local testing -- uncomment
             // cronSchedule = Cron.Weekly(DayOfWeek.Wednesday, 20, 45);
             // cronSchedule = Cron.MinuteInterval(5);
-            
+
             RecurringJob.AddOrUpdate<PhotoDownloadJob>(
                 "photo-download-job",
                 job => job.Execute(CancellationToken.None),
                 cronSchedule,
                 new RecurringJobOptions
                 {
-                    TimeZone = TimeZoneInfo.Local
+                    TimeZone = TimeZoneInfo.FindSystemTimeZoneById(jobOptions.TimeZoneId)
                 });
             
             return app;

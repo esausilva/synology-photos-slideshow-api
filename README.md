@@ -240,12 +240,13 @@ The API includes a **scheduled background job** powered by **Hangfire** that aut
 
 The scheduled job is fully configurable via the `PhotoDownloadScheduledJobOptions` section in `appsettings.json` or environment variables:
 
-| Option      | Type    | Description                                                                                      | Valid Range | Default |
-|:------------|:--------|:-------------------------------------------------------------------------------------------------|:------------|:--------|
-| `Enabled`   | Boolean | Enables or disables the scheduled job.                                                           | true/false  | `true`  |
-| `DayOfWeek` | Integer | Day of the week to run the job (0 = Sunday, 1 = Monday, ..., 6 = Saturday).                     | 0-6         | N/A     |
-| `Hour`      | Integer | Hour of the day to run the job (24-hour format).                                                 | 0-23        | N/A     |
-| `Minute`    | Integer | Minute of the hour to run the job.                                                               | 0-59        | N/A     |
+| Option       | Type    | Description                                                                                      | Valid Range | Default |
+|:-------------|:--------|:-------------------------------------------------------------------------------------------------|:------------|:--------|
+| `Enabled`    | Boolean | Enables or disables the scheduled job.                                                           | true/false  | `true`  |
+| `DayOfWeek`  | Integer | Day of the week to run the job (0 = Sunday, 1 = Monday, ..., 6 = Saturday).                     | 0-6         | N/A     |
+| `Hour`       | Integer | Hour of the day to run the job (24-hour format).                                                 | 0-23        | N/A     |
+| `Minute`     | Integer | Minute of the hour to run the job.                                                               | 0-59        | N/A     |
+| `TimeZoneId` | String  | IANA time zone ID used to schedule the job (e.g., `America/Chicago`, `America/New_York`).        | Any valid IANA time zone ID | N/A |
 
 Example configuration in `appsettings.json`:
 
@@ -255,16 +256,17 @@ Example configuration in `appsettings.json`:
     "Enabled": true,
     "DayOfWeek": 0,
     "Hour": 12,
-    "Minute": 3
+    "Minute": 3,
+    "TimeZoneId": "America/Chicago"
   }
 }
 ```
 
-This example schedules the job to run every **Sunday at 12:03 PM** in the server's local time zone.
+This example schedules the job to run every **Sunday at 12:03 PM** in the `America/Chicago` time zone.
 
 **Notes:**
 - Set `Enabled` to `false` to disable the scheduled job without removing the configuration.
-- The job uses the server's local time zone for scheduling.
+- `TimeZoneId` must be a valid IANA time zone ID. See [List of IANA time zones](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) for valid values.
 - The Hangfire dashboard is available at `/jobs` for monitoring job execution history and status.
 
 ## Logging
@@ -306,7 +308,8 @@ Update the following app settings in `appsettings.json` or create a .NET User Se
     "Enabled": true,
     "DayOfWeek": 0,
     "Hour": 12,
-    "Minute": 3
+    "Minute": 3,
+    "TimeZoneId": "America/Chicago"
   },
   "ConnectionStrings": {
     "Redis": "<<REDIS_CONNECTION_STRING>>"
@@ -327,10 +330,11 @@ Update the following app settings in `appsettings.json` or create a .NET User Se
 | `ThirdPartyServices.EnableDistributedCache` | Enable Redis distributed cache to speed up photo location lookup | **false** (default).                                                               |
 | `GoogleMapsOptions.ApiKey`                  | Google Maps API key                                              | Your API key.                                                                      |
 | `GoogleMapsOptions.EnableMocks`             | Enable mock Google Maps API responses for testing                | **true** (default).                                                                |
-| `PhotoDownloadScheduledJobOptions.Enabled`  | Enable or disable the scheduled photo download job               | **true** (default).                                                                |
-| `PhotoDownloadScheduledJobOptions.DayOfWeek`| Day of the week to run the job (0 = Sunday, 6 = Saturday)        | 0-6                                                                                |
-| `PhotoDownloadScheduledJobOptions.Hour`     | Hour of the day to run the job (24-hour format)                  | 0-23                                                                               |
-| `PhotoDownloadScheduledJobOptions.Minute`   | Minute of the hour to run the job                                | 0-59                                                                               |
+| `PhotoDownloadScheduledJobOptions.Enabled`    | Enable or disable the scheduled photo download job               | **true** (default).                                                                |
+| `PhotoDownloadScheduledJobOptions.DayOfWeek`  | Day of the week to run the job (0 = Sunday, 6 = Saturday)        | 0-6                                                                                |
+| `PhotoDownloadScheduledJobOptions.Hour`       | Hour of the day to run the job (24-hour format)                  | 0-23                                                                               |
+| `PhotoDownloadScheduledJobOptions.Minute`     | Minute of the hour to run the job                                | 0-59                                                                               |
+| `PhotoDownloadScheduledJobOptions.TimeZoneId` | IANA time zone ID used to schedule the job                       | e.g., `America/Chicago`, `America/New_York`                                        |
 | `ConnectionStrings.Redis`                   | Redis connection string                                          | e.g.,`localhost:6379,abortConnect=false,connectTimeout=10000`                      |
 
 Refer to [Endpoints](#endpoints) on how to call the API endpoints.
@@ -373,6 +377,7 @@ services:
       - PhotoDownloadScheduledJobOptions:DayOfWeek=0
       - PhotoDownloadScheduledJobOptions:Hour=12
       - PhotoDownloadScheduledJobOptions:Minute=3
+      - PhotoDownloadScheduledJobOptions:TimeZoneId=America/Chicago
       - ConnectionStrings:Redis=redis.slideshow:6379,abortConnect=false,connectTimeout=10000
     volumes:
       - ./.slides:/app/slides
@@ -460,10 +465,11 @@ The environment variables will be as follows:
 | ThirdPartyServices:EnableGeolocation      | true                                                       |
 | ThirdPartyServices:EnableDistributedCache | true                                                       |
 | GoogleMapsOptions:ApiKey                  | [[GOOGLE_MAPS_API_KEY]]                                    |
-| PhotoDownloadScheduledJobOptions:Enabled  | true                                                       |
-| PhotoDownloadScheduledJobOptions:DayOfWeek| 0                                                          |
-| PhotoDownloadScheduledJobOptions:Hour     | 12                                                         |
-| PhotoDownloadScheduledJobOptions:Minute   | 3                                                          |
+| PhotoDownloadScheduledJobOptions:Enabled    | true                                                       |
+| PhotoDownloadScheduledJobOptions:DayOfWeek  | 0                                                          |
+| PhotoDownloadScheduledJobOptions:Hour       | 12                                                         |
+| PhotoDownloadScheduledJobOptions:Minute     | 3                                                          |
+| PhotoDownloadScheduledJobOptions:TimeZoneId | America/Chicago                                            |
 | ConnectionStrings:Redis                   | [[SERVER_IP]]:6379,abortConnect=false,connectTimeout=10000 |
 
 Refer to [Photo Location](./docs/photo-location.md) and [Redis](./docs/redis.md) for geolocation and caching, including getting the Google Maps API.
