@@ -43,6 +43,7 @@ public static class ConfigurationExtensions
             services.AddTransient<IBackgroundJobSynologyAuthentication, BackgroundJobSynologyAuthentication>();
             services.AddSingleton<ISynologyApiInfoProvider, SynologyApiInfoProvider>();
             services.AddSingleton<IPhotoProcessingChannel, PhotoProcessingChannel>();
+            services.AddSingleton<IPhotoThumbnailProcessingChannel, PhotoThumbnailProcessingChannel>();
             services.AddTransient<INasPhotoSearchService, NasPhotoSearchService>();
             services.AddTransient<IFileStation, FileStation>();
             services.AddTransient<IFileProcessor, FileProcessor>();
@@ -50,6 +51,7 @@ public static class ConfigurationExtensions
             services.ConfigureLocationService(configuration);
             
             services.AddHostedService<PhotoProcessingWorker>();
+            services.AddHostedService<ThumbnailProcessingWorker>();
             
             return services;
         }

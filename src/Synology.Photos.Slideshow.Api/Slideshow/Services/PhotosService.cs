@@ -20,7 +20,10 @@ public sealed partial class PhotosService : IPhotosService
     private readonly ILogger<PhotosService> _logger;
 
     // DSM creates thumbnails in a directory named "@eaDir" when accessing the photos via 'DS File'
-    private const string ThumbnailDir = "@eaDir";
+    private const string DsmThumbnailDir = "@eaDir";
+
+    private const string ThumbnailPostfix = "__thumb";
+    private const int ThumbnailMaxDimension = 400;
 
     private static readonly HashSet<string> ValidImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -59,8 +62,8 @@ public sealed partial class PhotosService : IPhotosService
         var stopwatch = Stopwatch.StartNew();
 
         var photos = Directory.EnumerateFiles(_rootPath, "*", SearchOption.AllDirectories)
-            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}{ThumbnailDir}{Path.DirectorySeparatorChar}") &&
-                        !f.Contains($"{Path.DirectorySeparatorChar}{ThumbnailDir}"))
+            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}{DsmThumbnailDir}{Path.DirectorySeparatorChar}") &&
+                        !f.Contains($"{Path.DirectorySeparatorChar}{DsmThumbnailDir}"))
             .Where(f => ImageExtensionsForConversion.Contains(Path.GetExtension(f)));
         
         var photosToDelete = new List<string>();
@@ -103,8 +106,8 @@ public sealed partial class PhotosService : IPhotosService
         _logger.LogInformation("Retrieving photo metadata and creating relative URLs");
 
         var slideCreationTasks = Directory.EnumerateFiles(_rootPath, "*", SearchOption.AllDirectories)
-            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}{ThumbnailDir}{Path.DirectorySeparatorChar}") &&
-                        !f.Contains($"{Path.DirectorySeparatorChar}{ThumbnailDir}"))
+            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}{DsmThumbnailDir}{Path.DirectorySeparatorChar}") &&
+                        !f.Contains($"{Path.DirectorySeparatorChar}{DsmThumbnailDir}"))
             .Where(f => ValidImageExtensions.Contains(Path.GetExtension(f)))
             .Select(f => CreateImageSlideInfo(f, cancellationToken));
 
@@ -114,6 +117,84 @@ public sealed partial class PhotosService : IPhotosService
             .Where(slide => slide is not null)
             .Select(slide => slide!)
             .ToList();
+    }
+
+    /// <summary>
+    /// Creates thumbnail versions of processed WebP photos. Thumbnails are resized to fit within
+    /// a maximum dimension suitable for gallery views, have all metadata stripped, and are saved
+    /// with a "__thumb" postfix in the filename.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token used to cancel the operation.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    public async Task CreateThumbnails(CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Creating thumbnails for gallery view");
+
+        var stopwatch = Stopwatch.StartNew();
+
+        var photos = Directory.EnumerateFiles(_rootPath, "*.webp", SearchOption.TopDirectoryOnly)
+            .Where(f => !Path.GetFileNameWithoutExtension(f).EndsWith(ThumbnailPostfix, StringComparison.OrdinalIgnoreCase));
+
+        foreach (var photo in photos)
+        {
+            var filename = Path.GetFileNameWithoutExtension(photo);
+            var thumbnailPath = $"{_rootPath}{Path.DirectorySeparatorChar}{filename}{ThumbnailPostfix}.webp";
+
+            if (File.Exists(thumbnailPath))
+                continue;
+
+            using var image = await Image.LoadAsync(photo, cancellationToken);
+
+            image.Mutate(i => i.AutoOrient());
+
+            var (thumbWidth, thumbHeight) = ScaleThumbnailDimensions(image, ThumbnailMaxDimension);
+            image.Mutate(i => i.Resize(thumbWidth, thumbHeight));
+
+            // Strip all metadata
+            image.Metadata.ExifProfile = null;
+            image.Metadata.IccProfile = null;
+            image.Metadata.IptcProfile = null;
+            image.Metadata.XmpProfile = null;
+
+            await image.SaveAsWebpAsync(thumbnailPath, new WebpEncoder
+            {
+                Quality = 60,
+                FileFormat = WebpFileFormatType.Lossy
+            }, cancellationToken: cancellationToken);
+        }
+
+        stopwatch.Stop();
+        LogThumbnailsCreatedInElapsedMillisecondsMs(stopwatch.ElapsedMilliseconds);
+    }
+
+    /// <summary>
+    /// Retrieves a list of relative URLs for thumbnail images.
+    /// Filters for photos with the "__thumb" postfix in the configured directory.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token used to cancel the operation.</param>
+    /// <returns>A task returning a read-only list of relative URL strings for the thumbnails.</returns>
+    public Task<IReadOnlyList<string>> GetThumbnails(CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Retrieving thumbnail URLs");
+
+        var thumbnails = Directory.EnumerateFiles(_rootPath, $"*{ThumbnailPostfix}.webp", SearchOption.TopDirectoryOnly)
+            .Select(f =>
+            {
+                var fileName = Path.GetFileName(f);
+                return $"{SlideshowConstants.BaseRoute}/{fileName}";
+            })
+            .ToList();
+
+        return Task.FromResult<IReadOnlyList<string>>(thumbnails);
+    }
+
+    private static (int scaledWidth, int scaledHeight) ScaleThumbnailDimensions(Image image, int maxDimension)
+    {
+        var ratio = Math.Min((double)maxDimension / image.Width, (double)maxDimension / image.Height);
+
+        return ratio >= 1.0 
+            ? (image.Width, image.Height) 
+            : ((int)(image.Width * ratio), (int)(image.Height * ratio));
     }
 
     private static (int scaledWidth, int scaledHeight) ScaleImageDimensions(Image image, double scale) =>
@@ -271,4 +352,7 @@ public sealed partial class PhotosService : IPhotosService
 
     [LoggerMessage(LogLevel.Information, "Photos processed in {ElapsedMilliseconds}ms")]
     partial void LogPhotosProcessedInElapsedMillisecondsMs(long elapsedMilliseconds);
+
+    [LoggerMessage(LogLevel.Information, "Thumbnails created in {ElapsedMilliseconds}ms")]
+    partial void LogThumbnailsCreatedInElapsedMillisecondsMs(long elapsedMilliseconds);
 }

@@ -31,6 +31,11 @@ public static class ConfigureEndpointsExtensions
                 .Produces<IList<string>>()
                 .Produces(StatusCodes.Status500InternalServerError);
             
+            group.MapGet("thumbnails", Thumbnails.GetAsync)
+                .WithName("GetThumbnails")
+                .Produces<IList<string>>()
+                .Produces(StatusCodes.Status500InternalServerError);
+
             group.MapPost("bulk-delete", DeletePhotos.PostAsync)
                 .WithName("BulkDeletePhotos")
                 .ProducesValidationProblem()

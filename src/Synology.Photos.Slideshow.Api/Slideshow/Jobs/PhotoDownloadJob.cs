@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.SignalR;
 using Synology.Photos.Slideshow.Api.Slideshow.Auth;
 using Synology.Photos.Slideshow.Api.Slideshow.Hubs;
+using Synology.Photos.Slideshow.Api.Slideshow.Messaging;
 using Synology.Photos.Slideshow.Api.Slideshow.Services;
 
 namespace Synology.Photos.Slideshow.Api.Slideshow.Jobs;
@@ -8,15 +9,18 @@ namespace Synology.Photos.Slideshow.Api.Slideshow.Jobs;
 public class PhotoDownloadJob
 {
     private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly IPhotoThumbnailProcessingChannel _thumbnailProcessingChannel;
     private readonly IHubContext<SlideshowHub, ISlideshowHub> _hubContext;
     private readonly ILogger<PhotoDownloadJob> _logger;
 
     public PhotoDownloadJob(
         IServiceScopeFactory serviceScopeFactory,
+        IPhotoThumbnailProcessingChannel thumbnailProcessingChannel,
         IHubContext<SlideshowHub, ISlideshowHub> hubContext,
         ILogger<PhotoDownloadJob> logger)
     {
         _serviceScopeFactory = serviceScopeFactory;
+        _thumbnailProcessingChannel = thumbnailProcessingChannel;
         _hubContext = hubContext;
         _logger = logger;
     }
@@ -53,7 +57,9 @@ public class PhotoDownloadJob
             await photoService.ProcessPhotos(cancellationToken);
 
             _logger.LogInformation("Photo download job completed successfully. Sending refresh signal.");
+            
             await _hubContext.Clients.All.RefreshSlideshow();
+            await _thumbnailProcessingChannel.PublishAsync(cancellationToken);
         }
         catch (Exception ex)
         {

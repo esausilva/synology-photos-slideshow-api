@@ -15,6 +15,7 @@ The API is intended to run on your Synology NAS and be accessed only from your l
   - [Endpoints](#endpoints)
     - [Download Photos](#download-photos)
     - [Get Photo Slides](#get-photo-slides)
+    - [Get Thumbnails](#get-thumbnails)
     - [Bulk Delete Photos](#bulk-delete-photos)
   - [Real-time Updates](#real-time-updates)
     - [Hub Endpoint](#hub-endpoint)
@@ -43,6 +44,7 @@ The API exposes the following endpoints:
 
 - Download Photos
 - Get Photo Slides
+- Get Thumbnails
 - Bulk Delete Photos
 
 ### Download Photos
@@ -142,6 +144,32 @@ Example of the full photo's URL:
 http://<your-nas-ip>:5097/slideshow/20240618_141316.jpg
 ```
 
+### Get Thumbnails
+
+```text
+GET /photos/thumbnails
+```
+
+This endpoint returns a list of relative URLs for thumbnail images. Thumbnails are smaller versions of the slideshow photos, optimized for gallery views.
+
+Thumbnails are automatically generated in the background after photo processing completes. They are resized to fit within 400px (preserving the aspect ratio), have all metadata stripped, and are saved in WebP format with a `__thumb` postfix in the filename.
+
+#### Response Codes
+
+| Status Code | Description                         |
+| :---------- |:------------------------------------|
+| `200`       | Success                             |
+| `500`       | Unexpected errors (Problem Details) |
+
+An example of the success response:
+
+```json
+[
+  "/slideshow/20250723_135938__thumb.webp",
+  "/slideshow/IMG_20200323_083612__thumb.webp"
+]
+```
+
 ### Bulk Delete Photos
 
 ```text
@@ -225,10 +253,12 @@ The API uses SignalR to provide real-time updates to connected clients.
 ### Client Methods
 The following methods are invoked on the client:
 
-| Method                 | Description                                                                 |
-|:-----------------------|:----------------------------------------------------------------------------|
-| `RefreshSlideshow`     | Triggered when photo processing is complete or when photos are deleted.     |
-| `PhotoProcessingError` | Triggered if an error occurs during background photo processing.            |
+| Method                      | Description                                                                 |
+|:----------------------------|:----------------------------------------------------------------------------|
+| `RefreshSlideshow`          | Triggered when photo processing is complete or when photos are deleted.     |
+| `PhotoProcessingError`      | Triggered if an error occurs during background photo processing.            |
+| `RefreshGallery`            | Triggered when thumbnail generation is complete.                            |
+| `ThumbnailsProcessingError` | Triggered if an error occurs during background thumbnail generation.        |
 
 ## Features
 
