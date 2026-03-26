@@ -23,7 +23,6 @@ public sealed partial class PhotosService : IPhotosService
     private const string DsmThumbnailDir = "@eaDir";
 
     private const string ThumbnailPostfix = "__thumb";
-    private const int ThumbnailMaxDimension = 400;
 
     private static readonly HashSet<string> ValidImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -99,18 +98,22 @@ public sealed partial class PhotosService : IPhotosService
     /// Retrieves a list of photo metadata, including relative URLs, capture dates, and Google Maps links.
     /// Filters and processes photos from the configured directory, excluding thumbnails and unsupported formats.
     /// </summary>
+    /// <param name="includeThumbnails">Whether to include thumbnails in the response.</param>
     /// <param name="cancellationToken">The cancellation token used to cancel the operation.</param>
     /// <returns>A task returning a read-only list of <see cref="SlideResponse"/> objects containing photo metadata.</returns>
-    public async Task<IReadOnlyList<SlideResponse>> GetSlides(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<SlideResponse>> GetSlides(bool includeThumbnails, CancellationToken cancellationToken)
     {
         _logger.LogInformation("Retrieving photo metadata and creating relative URLs");
 
-        var slideCreationTasks = Directory.EnumerateFiles(_rootPath, "*", SearchOption.AllDirectories)
+        var photos = Directory.EnumerateFiles(_rootPath, "*", SearchOption.AllDirectories)
             .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}{DsmThumbnailDir}{Path.DirectorySeparatorChar}") &&
                         !f.Contains($"{Path.DirectorySeparatorChar}{DsmThumbnailDir}"))
-            .Where(f => ValidImageExtensions.Contains(Path.GetExtension(f)))
-            .Select(f => CreateImageSlideInfo(f, cancellationToken));
-
+            .Where(f => ValidImageExtensions.Contains(Path.GetExtension(f)));
+        
+        if (!includeThumbnails)
+            photos = photos.Where(f => !Path.GetFileNameWithoutExtension(f).EndsWith(ThumbnailPostfix, StringComparison.OrdinalIgnoreCase));
+            
+        var slideCreationTasks = photos.Select(f => CreateImageSlideInfo(f, cancellationToken));
         var slides = await Task.WhenAll(slideCreationTasks);
 
         return slides
@@ -128,6 +131,8 @@ public sealed partial class PhotosService : IPhotosService
     /// <returns>A task representing the asynchronous operation.</returns>
     public async Task CreateThumbnails(CancellationToken cancellationToken)
     {
+        const int thumbnailMaxDimension = 400;
+        
         _logger.LogInformation("Creating thumbnails for gallery view");
 
         var stopwatch = Stopwatch.StartNew();
@@ -147,7 +152,7 @@ public sealed partial class PhotosService : IPhotosService
 
             image.Mutate(i => i.AutoOrient());
 
-            var (thumbWidth, thumbHeight) = ScaleThumbnailDimensions(image, ThumbnailMaxDimension);
+            var (thumbWidth, thumbHeight) = ScaleThumbnailDimensions(image, thumbnailMaxDimension);
             image.Mutate(i => i.Resize(thumbWidth, thumbHeight));
 
             // Strip all metadata

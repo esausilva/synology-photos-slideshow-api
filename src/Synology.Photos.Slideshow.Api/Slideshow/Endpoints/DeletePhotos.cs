@@ -22,7 +22,7 @@ public static class DeletePhotos
         if (!validationResult.IsValid)
             return Results.ValidationProblem(validationResult.BuildValidationErrors());
         
-        var slides = await photosService.GetSlides(cancellationToken);
+        var slides = await photosService.GetSlides(includeThumbnails: true, cancellationToken);
         var unmatchedPhotos = 
             (from currentPhoto in request.PhotoNames
                 let photoExists = slides.Any(s => s.RelativeUrl.Contains(currentPhoto, StringComparison.OrdinalIgnoreCase)) 

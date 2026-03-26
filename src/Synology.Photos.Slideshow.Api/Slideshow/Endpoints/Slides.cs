@@ -6,7 +6,7 @@ public static class Slides
 {
     public static async Task<IResult> GetAsync(IPhotosService photosService, CancellationToken cancellationToken)
     {
-        var slides = await photosService.GetSlides(cancellationToken);
+        var slides = await photosService.GetSlides(includeThumbnails: false, cancellationToken);
 
         return Results.Ok(slides);
     }
