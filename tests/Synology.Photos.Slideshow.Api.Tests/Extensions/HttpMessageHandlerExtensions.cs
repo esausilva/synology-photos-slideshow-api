@@ -1,0 +1,18 @@
+using System.Reflection;
+
+namespace Synology.Photos.Slideshow.Api.Tests.Extensions;
+
+internal static class HttpMessageHandlerExtensions
+{
+    internal static Task<HttpResponseMessage> SendAsync(
+        this HttpMessageHandler handler,
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
+        var sendAsync = handler.GetType()
+            .GetMethod("SendAsync", BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+        return (Task<HttpResponseMessage>)
+            sendAsync.Invoke(handler, [request, cancellationToken])!;
+    }
+}

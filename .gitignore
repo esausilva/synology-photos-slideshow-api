@@ -10,3 +10,5 @@ docker-compose.local.yaml
 .logs/
 .idea/
 .DS_Store
+coverage-report/
+TestResults/

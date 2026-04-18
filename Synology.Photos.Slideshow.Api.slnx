@@ -4,4 +4,5 @@
     <File Path="docker-compose.local.yaml" />
   </Folder>
   <Project Path="src\Synology.Photos.Slideshow.Api\Synology.Photos.Slideshow.Api.csproj" Type="Classic C#" />
+  <Project Path="tests\Synology.Photos.Slideshow.Api.Tests\Synology.Photos.Slideshow.Api.Tests.csproj" Type="Classic C#" />
 </Solution>
