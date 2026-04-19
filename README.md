@@ -7,11 +7,15 @@ An API that downloads random photos from a Synology NAS, converts them to WebP, 
 1. `GET /photos/download` authenticates with the Synology NAS, searches configured folders, downloads a random set, unzips, flattens the folder structure, and converts images to WebP.
 2. Photos are served as static files under `/slideshow`.
 3. `GET /photos/slides` returns metadata for the files currently in the slideshow folder.
+4. An optional **scheduled background job** powered by **Hangfire** can be configured to automatically download and process new photo sets at set intervals.
 
 The API is intended to run on your Synology NAS and be accessed only from your local network.
 
+---
+
 ### Table of Contents:
 
+  - [Architecture](#architecture)
   - [Endpoints](#endpoints)
     - [Download Photos](#download-photos)
     - [Get Photo Slides](#get-photo-slides)
@@ -33,6 +37,38 @@ The API is intended to run on your Synology NAS and be accessed only from your l
   - [Giving Back](#giving-back)
 
 ---
+
+## Architecture
+
+For a detailed breakdown of call flows and component interactions, see [Architecture Overview](docs/architecture.md).
+
+```mermaid
+graph TD
+    Client[Slideshow Client]
+    API[ASP.NET Core API]
+    NAS[Synology NAS]
+    FS[Local File System]
+    SignalR[SignalR Hub]
+
+    subgraph Background Processing
+        PhotoChannel[Photo Processing Channel]
+        PhotoWorker[Photo Processing Worker]
+        Hangfire[Hangfire Scheduled Job]
+    end
+
+    Client -->|HTTP Request| API
+    API -->|Search & Download| NAS
+    API -->|Extract| FS
+    API -->|Publish| PhotoChannel
+    API -->|Return 204| Client
+
+    PhotoWorker -->|Read| PhotoChannel
+    PhotoWorker -->|Convert WebP| FS
+    PhotoWorker -->|Notify| SignalR
+
+    Hangfire -->|Execute| API
+    SignalR -.->|Real-time Updates| Client
+```
 
 ## Endpoints
 
