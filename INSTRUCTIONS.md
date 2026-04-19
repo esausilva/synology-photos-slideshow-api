@@ -29,6 +29,14 @@ dotnet test
 
 # Run tests with code coverage
 dotnet test --collect "Code Coverage"
+
+dotnet test -- --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml                                                                                                                                                     
+dotnet reportgenerator \
+-reports:"tests/Synology.Photos.Slideshow.Api.Tests/bin/Debug/net10.0/TestResults/coverage.cobertura.xml" \
+-targetdir:"coverage-report" \
+-reporttypes:"Html;TextSummary" \
+-assemblyfilters:"+Synology.Photos.Slideshow.Api" \
+-filefilters:"-**/obj/**;-**/*.generated.cs;-**/*.g.cs"
 ```
 
 Tests are located in `tests/Synology.Photos.Slideshow.Api.Tests/UnitTests/` and organized by component: `AuthTests`, `ExtensionsTests`, `MessagingTests`, `ProvidersTests`, `ServicesTests`, and `ValidatorsTests`.
