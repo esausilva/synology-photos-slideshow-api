@@ -49,7 +49,7 @@ public sealed partial class FileStation : IFileStation
     /// <param name="fileStationItems">A list of file station items representing the files to be downloaded.</param>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
     /// <returns>A task that represents the asynchronous download operation.</returns>
-    public async Task Download(IList<FileStationItem> fileStationItems, CancellationToken cancellationToken)
+    public async Task<bool> Download(IList<FileStationItem> fileStationItems, CancellationToken cancellationToken)
         => await DownloadCore(fileStationItems, _authContext.GetSynoToken(), cancellationToken);
 
     /// <summary>
@@ -59,40 +59,87 @@ public sealed partial class FileStation : IFileStation
     /// <param name="synoToken">The authentication token required to access the Synology File Station.</param>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
     /// <returns>A task that represents the asynchronous file download operation.</returns>
-    public async Task Download(IList<FileStationItem> fileStationItems, string synoToken,
+    public async Task<bool> Download(IList<FileStationItem> fileStationItems, string synoToken,
         CancellationToken cancellationToken)
         => await DownloadCore(fileStationItems, synoToken, cancellationToken);
 
     /// <summary>
     /// Executes the core logic for downloading files from Synology File Station, including cleaning the download directory,
-    /// sending a request to the API, and saving the retrieved files locally.
+    /// sending requests to the API in chunks to avoid URL length limits, and saving the retrieved files locally.
     /// </summary>
     /// <param name="fileStationItems">A list of file station items representing the files to be downloaded.</param>
     /// <param name="synoToken">The authentication token required to access Synology File Station.</param>
     /// <param name="cancellationToken">A token to monitor for cancellation requests during the download operation.</param>
-    /// <returns>A task that represents the asynchronous operation of downloading files.</returns>
-    private async Task DownloadCore(IList<FileStationItem> fileStationItems, string? synoToken,
+    /// <returns>A task that represents the asynchronous operation of downloading files, returning true if at least one chunk was successful.</returns>
+    private async Task<bool> DownloadCore(IList<FileStationItem> fileStationItems, string? synoToken,
         CancellationToken cancellationToken)
     {
-        LogDownloadingPhotocountPhotosFromNas(fileStationItems.Count);
+        if (fileStationItems.Count == 0)
+        {
+            _logger.LogWarning("No photos provided for download.");
+            return true;
+        }
+
+        LogDownloadingPhotoCount(fileStationItems.Count);
         
         await _fileProcessor.CleanDownloadDirectory(cancellationToken);
+
+        const int chunkSize = 50;
+        var chunks = fileStationItems.Chunk(chunkSize).ToList();
+        var successfulChunksCount = 0;
+        var apiVersion = await GetApiVersion(cancellationToken);
+
+        foreach (var chunk in chunks)
+        {
+            var success = await DownloadAndProcessChunk(chunk, synoToken!, apiVersion, cancellationToken);
+            
+            if (success)
+                successfulChunksCount++;
+        }
+
+        var noSuccessInChunks = chunks.Count > 0 && successfulChunksCount == 0;
+        if (noSuccessInChunks)
+        {
+            _logger.LogError("All photo download chunks failed.");
+            return false;
+        }
         
+        LogDownloadChunkResults(successfulChunksCount, chunks.Count);
+
+        return true;
+    }
+
+    private async Task<bool> DownloadAndProcessChunk(
+        IEnumerable<FileStationItem> chunk, 
+        string synoToken, 
+        int apiVersion, 
+        CancellationToken cancellationToken)
+    {
+        var chunkList = chunk.ToList();
         var downloadRequest = new FileStationDownloadRequest(
-            version: await GetApiVersion(cancellationToken),
+            version: apiVersion,
             method: SynologyApiMethods.FileStation.Download_Download,
-            synoToken: synoToken!,
+            synoToken: synoToken,
             mode: "download",
-            path: fileStationItems.Select(p => p.Path).ToList());
+            path: chunkList.Select(p => p.Path).ToList());
+        
         var downloadUrl = _requestBuilder.BuildUrl(downloadRequest);
         var downloadResponse = await _apiService.GetRawResponseAsync(downloadUrl, cancellationToken);
 
+        if (!downloadResponse.Success)
+        {
+            _logger.LogWarning("Failed to download chunk of {Count} photos. Status code: {StatusCode}", chunkList.Count, downloadResponse.StatusCode);
+            return false;
+        }
+
         await DownloadHelpers.DownloadImageOrZipFromFileStationApi(
             _synoApiOptions.CurrentValue.DownloadAbsolutePath, 
-            fileStationItems.ToList(),
+            chunkList,
             downloadResponse.HttpResponse);
         
-        _logger.LogDebug("Downloaded photos");
+        await _fileProcessor.ProcessZipFile(cancellationToken);
+        
+        return true;
     }
 
     /// <summary>
@@ -106,5 +153,8 @@ public sealed partial class FileStation : IFileStation
     }
 
     [LoggerMessage(LogLevel.Information, "Downloading {PhotoCount} photos from NAS")]
-    partial void LogDownloadingPhotocountPhotosFromNas(int photoCount);
+    partial void LogDownloadingPhotoCount(int photoCount);
+
+    [LoggerMessage(LogLevel.Debug, "Finished downloading and processing all photo chunks. {SuccessfulCount}/{TotalCount} chunks succeeded.")]
+    partial void LogDownloadChunkResults(int successfulCount, int totalCount);
 }

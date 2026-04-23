@@ -38,7 +38,6 @@ public class PhotoDownloadJob
             
             var photoSearchService = scope.ServiceProvider.GetRequiredService<INasPhotoSearchService>();
             var fileStation = scope.ServiceProvider.GetRequiredService<IFileStation>();
-            var fileProcessor = scope.ServiceProvider.GetRequiredService<IFileProcessor>();
             var photoService = scope.ServiceProvider.GetRequiredService<IPhotosService>();
 
             var synoToken = authContext.GetSynoToken()!;
@@ -52,8 +51,15 @@ public class PhotoDownloadJob
                 return;
             }
 
-            await fileStation.Download(fileStationItemsResult.Value, synoToken, cancellationToken);
-            await fileProcessor.ProcessZipFile(cancellationToken);
+            var downloadSuccess = await fileStation.Download(fileStationItemsResult.Value, synoToken, cancellationToken);
+            
+            if (!downloadSuccess)
+            {
+                await _hubContext.Clients.All.PhotoProcessingError("Failed to download photos from Synology. Please check the logs.");
+
+                return;
+            }
+            
             await photoService.ProcessPhotos(cancellationToken);
 
             _logger.LogInformation("Photo download job completed successfully. Sending refresh signal.");

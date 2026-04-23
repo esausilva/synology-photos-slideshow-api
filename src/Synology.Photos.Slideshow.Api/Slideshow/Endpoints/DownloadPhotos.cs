@@ -13,7 +13,6 @@ public static class DownloadPhotos
         HttpContext context,
         INasPhotoSearchService photoSearchService,
         IFileStation fileStation,
-        IFileProcessor fileProcessor,
         IPhotoProcessingChannel photoProcessingChannel,
         CancellationToken cancellationToken)
     {
@@ -22,8 +21,10 @@ public static class DownloadPhotos
         if (fileStationItemsResult.IsFailed)
             return CreateProblemResult(fileStationItemsResult.Errors.Single().Message);
 
-        await fileStation.Download(fileStationItemsResult.Value, cancellationToken);
-        await fileProcessor.ProcessZipFile(cancellationToken);
+        var downloadSuccess = await fileStation.Download(fileStationItemsResult.Value, cancellationToken);
+        
+        if (!downloadSuccess)
+            return CreateProblemResult("Failed to download photos from Synology. Please check the logs.");
         
         // Triggers background photo processing conversion
         await photoProcessingChannel.PublishAsync(cancellationToken);

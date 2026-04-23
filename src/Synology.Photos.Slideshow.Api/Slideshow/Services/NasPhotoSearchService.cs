@@ -24,6 +24,10 @@ public sealed partial class NasPhotoSearchService : INasPhotoSearchService
     private readonly Random _random = Random.Shared;
     
     private static readonly IList<string> VideoFileExtensions = [".mp4", ".mov", ".avi", ".mkv", ".wmv"];
+    private static readonly HashSet<string> PhotoFileExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff"
+    };
 
     private const int SingleItemLimit = 1;
     private const int SearchPollingDelayMs = 3_000;
@@ -225,28 +229,80 @@ public sealed partial class NasPhotoSearchService : INasPhotoSearchService
         if (totalPhotosCount <= 0)
         {
             _logger.LogWarning("No photos were found in the search results");
-            return new List<FileStationItem>();
+            return Array.Empty<FileStationItem>();
         }
     
-        var fileStationItems = new List<FileStationItem>();
-        var photoDownloadCount = _synoApiOptions.CurrentValue.NumberOfPhotoDownloads;
-    
-        while (fileStationItems.Count < photoDownloadCount)
+        var targetCount = GetTargetDownloadCount(totalPhotosCount);
+        var selectedItems = new List<FileStationItem>();
+        var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        while (selectedItems.Count < targetCount)
         {
-            var fileStationItem = await GetRandomFileStationItem(taskId, apiVersion, totalPhotosCount, cancellationToken);
-        
-            if (!string.IsNullOrWhiteSpace(fileStationItem.Path) && 
-                VideoFileExtensions.Any(ext => fileStationItem.Path.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
+            var item = await GetRandomFileStationItem(taskId, apiVersion, totalPhotosCount, cancellationToken);
+            
+            if (IsValidNewPhoto(item, seenPaths))
             {
-                LogSkippingVideoFilePath(fileStationItem.Path);
-                continue;
+                selectedItems.Add(item);
+                seenPaths.Add(item.Path!);
             }
-        
-            if (!string.IsNullOrWhiteSpace(fileStationItem.Path))
-                fileStationItems.Add(fileStationItem);
+
+            // Break if we've probed every possible file in the search result
+            if (seenPaths.Count < totalPhotosCount) 
+                continue;
+            
+            _logger.LogWarning("Exhausted all search results. Found {Count}/{Target} valid photos.", selectedItems.Count, targetCount);
+            break;
         }
     
-        return fileStationItems;
+        return selectedItems;
+    }
+
+    /// <summary>
+    /// Determines the target number of photos to download based on the requested amount and the total available count.
+    /// </summary>
+    /// <param name="totalAvailable">The total number of photos available for download.</param>
+    /// <returns>
+    /// The number of photos to download, which is either the requested amount from configuration
+    /// or the total available count, whichever is smaller.
+    /// </returns>
+    private int GetTargetDownloadCount(int totalAvailable)
+    {
+        var requested = _synoApiOptions.CurrentValue.NumberOfPhotoDownloads;
+        
+        if (requested <= totalAvailable) 
+            return requested;
+
+        _logger.LogWarning("Requested {Requested} photos but only {Total} are available. Adjusting download count.", requested, totalAvailable);
+        
+        return totalAvailable;
+    }
+
+    /// <summary>
+    /// Determines whether a given file item represents a valid photo that has not been processed before.
+    /// </summary>
+    /// <param name="item">The file item to be evaluated for validity as a photo.</param>
+    /// <param name="seenPaths">A set of paths for already processed files to check for duplicates.</param>
+    /// <returns>
+    /// <c>true</c> if the file item is a valid, unprocessed photo; otherwise, <c>false</c>.
+    /// </returns>
+    private bool IsValidNewPhoto(FileStationItem item, HashSet<string> seenPaths)
+    {
+        if (string.IsNullOrWhiteSpace(item.Path) || seenPaths.Contains(item.Path))
+            return false;
+
+        var extension = Path.GetExtension(item.Path);
+
+        if (VideoFileExtensions.Any(ext => extension.Equals(ext, StringComparison.OrdinalIgnoreCase)))
+        {
+            LogSkippingVideoFilePath(item.Path);
+            return false;
+        }
+
+        if (PhotoFileExtensions.Contains(extension)) 
+            return true;
+        
+        LogSkippingNonPhotoFilePath(item.Path);
+        return false;
     }
     
     /// <summary>
@@ -309,4 +365,7 @@ public sealed partial class NasPhotoSearchService : INasPhotoSearchService
 
     [LoggerMessage(LogLevel.Debug, "Retrying search operation (attempt {RetryCount})")]
     partial void LogRetryingSearchOperationAttemptRetryCount(int retryCount);
+
+    [LoggerMessage(LogLevel.Debug, "Skipping non-photo file: {Path}")]
+    partial void LogSkippingNonPhotoFilePath(string path);
 }
