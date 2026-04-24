@@ -1,0 +1,30 @@
+@baseUrl = http://localhost:5097
+
+### Download Photos
+# Triggers an asynchronous download of random photos from the NAS.
+# Returns 204 No Content on success.
+GET {{baseUrl}}/photos/download
+Accept: application/json
+
+### Get Slides
+# Retrieves a list of photo metadata including relative URLs and EXIF data.
+GET {{baseUrl}}/photos/slides
+Accept: application/json
+
+### Get Thumbnails
+# Retrieves a list of relative URLs for photo thumbnails.
+GET {{baseUrl}}/photos/thumbnails
+Accept: application/json
+
+### Bulk Delete Photos
+# Deletes specified photos from the local storage.
+POST {{baseUrl}}/photos/bulk-delete
+Content-Type: application/json
+Accept: application/json
+
+{
+  "photoNames": [
+    "IMG_20171125_191836.webp"
+  ],
+  "signalRConnectionId": null
+}
