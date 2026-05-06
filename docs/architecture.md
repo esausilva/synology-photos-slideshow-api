@@ -89,6 +89,7 @@ sequenceDiagram
     participant EP as Slides Endpoint
     participant Svc as PhotosService
     participant FS as Local File System
+    participant Cache as HybridCache (Redis)
     participant Google as Google Maps API
 
     Client->>EP: GET /photos/slides
@@ -96,8 +97,13 @@ sequenceDiagram
     Svc->>FS: List WebP Files
     Svc->>FS: Read EXIF (Date/GPS)
     opt Geolocation Enabled
-        Svc->>Google: Reverse Geocode GPS
-        Google-->>Svc: City, State
+        Svc->>Cache: GetOrCreateAsync(GPS)
+        alt Cache Miss
+            Svc->>Google: Reverse Geocode GPS
+            Google-->>Svc: City, State
+        else Cache Hit
+            Cache-->>Svc: City, State
+        end
     end
     Svc-->>EP: List of SlideResponse
     EP-->>Client: 200 OK (JSON)

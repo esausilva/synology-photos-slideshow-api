@@ -92,6 +92,7 @@ Photo download is async: endpoint queues work into a `System.Threading.Channels`
 
 ### Patterns & Conventions
 
+- **Prefer .NET 10 and C# 14 compatible code and features**
 - **Follow clean code best practices** (e.g., Single Responsibility Principle, descriptive naming, extracting complex logic into helper methods)
 - **FluentResults** `Result<T>` pattern for service-layer error handling (not exceptions)
 - **FluentValidation** for request validation
