@@ -82,6 +82,75 @@ public class PhotosServiceTests
     }
 
     [Test]
+    public async Task Assert_GetThumbnails_Returns_Relative_Urls_For_Nested_Files()
+    {
+        using var temp = new TempDirectory();
+        var favoritesPath = Path.Combine(temp.Path, "favorites");
+        Directory.CreateDirectory(favoritesPath);
+        
+        await WriteWebpAsync(Path.Combine(temp.Path, "root__thumb.webp"));
+        await WriteWebpAsync(Path.Combine(favoritesPath, "nested__thumb.webp"));
+
+        var harness = CreateHarness(temp.Path);
+
+        var thumbnails = await harness.Service.GetThumbnails(CancellationToken.None);
+
+        await Assert
+            .That(thumbnails.Count)
+            .IsEqualTo(2);
+
+        await Assert
+            .That(thumbnails)
+            .Contains("/slideshow/root__thumb.webp")
+            .And
+            .Contains("/slideshow/favorites/nested__thumb.webp");
+    }
+
+    [Test]
+    public async Task Assert_CreateThumbnails_Produces_Nested_Thumb_Files()
+    {
+        using var temp = new TempDirectory();
+        var favoritesPath = Path.Combine(temp.Path, "favorites");
+        Directory.CreateDirectory(favoritesPath);
+        
+        await WriteWebpAsync(Path.Combine(favoritesPath, "vacation.webp"), width: 1200, height: 800);
+
+        var harness = CreateHarness(temp.Path);
+
+        await harness.Service.CreateThumbnails(CancellationToken.None);
+
+        var thumbPath = Path.Combine(favoritesPath, "vacation__thumb.webp");
+
+        await Assert
+            .That(File.Exists(thumbPath))
+            .IsTrue();
+    }
+
+    [Test]
+    public async Task Assert_ProcessPhotos_Converts_Nested_Sources_In_Place_And_Requests_Relative_Deletion()
+    {
+        using var temp = new TempDirectory();
+        var favoritesPath = Path.Combine(temp.Path, "favorites");
+        Directory.CreateDirectory(favoritesPath);
+        
+        await WriteJpegAsync(Path.Combine(favoritesPath, "trip.jpg"), width: 200, height: 200);
+
+        var harness = CreateHarness(temp.Path);
+
+        await harness.Service.ProcessPhotos(CancellationToken.None);
+
+        await Assert
+            .That(File.Exists(Path.Combine(favoritesPath, "trip.webp")))
+            .IsTrue();
+
+        await harness.FileProcessor
+            .Received(1)
+            .DeletePhotos(
+                Arg.Is<IList<string>>(l => l.Count == 1 && l[0] == Path.Combine("favorites", "trip.jpg")),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Test]
     public async Task Assert_GetThumbnails_Returns_Empty_When_No_Thumbnails_Present()
     {
         using var temp = new TempDirectory();

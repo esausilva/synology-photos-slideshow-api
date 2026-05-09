@@ -6,8 +6,8 @@ using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.Metadata.Profiles.Exif;
 using SixLabors.ImageSharp.Processing;
 using Synology.Photos.Slideshow.Api.Configuration;
-using Synology.Photos.Slideshow.Api.Constants;
 using Synology.Photos.Slideshow.Api.Slideshow.Endpoints.Response;
+using static Synology.Photos.Slideshow.Api.Constants.SlideshowConstants;
 
 namespace Synology.Photos.Slideshow.Api.Slideshow.Services;
 
@@ -18,9 +18,6 @@ public sealed partial class PhotosService : IPhotosService
     private readonly ILocationService _locationService;
     private readonly IFileProcessor _fileProcessor;
     private readonly ILogger<PhotosService> _logger;
-
-    // DSM creates thumbnails in a directory named "@eaDir" when accessing the photos via 'DS File'
-    private const string DsmThumbnailDir = "@eaDir";
 
     private const string ThumbnailPostfix = "__thumb";
 
@@ -61,8 +58,7 @@ public sealed partial class PhotosService : IPhotosService
         var stopwatch = Stopwatch.StartNew();
 
         var photos = Directory.EnumerateFiles(_rootPath, "*", SearchOption.AllDirectories)
-            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}{DsmThumbnailDir}{Path.DirectorySeparatorChar}") &&
-                        !f.Contains($"{Path.DirectorySeparatorChar}{DsmThumbnailDir}"))
+            .Where(IsNotDsmThumbnailDir)
             .Where(f => ImageExtensionsForConversion.Contains(Path.GetExtension(f)));
         
         var photosToDelete = new List<string>();
@@ -75,17 +71,18 @@ public sealed partial class PhotosService : IPhotosService
             image.Mutate(i => i.AutoOrient());
 
             var (scaledWidth, scaledHeight) = ScaleImageDimensions(image, scale: 0.8);
+            var directory = Path.GetDirectoryName(photo) ?? _rootPath;
             var filename = Path.GetFileNameWithoutExtension(photo);
 
             image.Mutate(i => i.Resize(scaledWidth, scaledHeight));
 
-            await image.SaveAsWebpAsync($"{_rootPath}{Path.DirectorySeparatorChar}{filename}.webp", new WebpEncoder
+            await image.SaveAsWebpAsync(Path.Combine(directory, $"{filename}.webp"), new WebpEncoder
             {
                 Quality = 75,
                 FileFormat = WebpFileFormatType.Lossy
             }, cancellationToken: cancellationToken);
 
-            photosToDelete.Add(Path.GetFileName(photo));
+            photosToDelete.Add(Path.GetRelativePath(_rootPath, photo));
         }
 
         stopwatch.Stop();
@@ -106,8 +103,7 @@ public sealed partial class PhotosService : IPhotosService
         _logger.LogInformation("Retrieving photo metadata and creating relative URLs");
 
         var photos = Directory.EnumerateFiles(_rootPath, "*", SearchOption.AllDirectories)
-            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}{DsmThumbnailDir}{Path.DirectorySeparatorChar}") &&
-                        !f.Contains($"{Path.DirectorySeparatorChar}{DsmThumbnailDir}"))
+            .Where(IsNotDsmThumbnailDir)
             .Where(f => ValidImageExtensions.Contains(Path.GetExtension(f)));
         
         if (!includeThumbnails)
@@ -137,13 +133,15 @@ public sealed partial class PhotosService : IPhotosService
 
         var stopwatch = Stopwatch.StartNew();
 
-        var photos = Directory.EnumerateFiles(_rootPath, "*.webp", SearchOption.TopDirectoryOnly)
+        var photos = Directory.EnumerateFiles(_rootPath, "*.webp", SearchOption.AllDirectories)
+            .Where(IsNotDsmThumbnailDir)
             .Where(f => !Path.GetFileNameWithoutExtension(f).EndsWith(ThumbnailPostfix, StringComparison.OrdinalIgnoreCase));
 
         foreach (var photo in photos)
         {
+            var directory = Path.GetDirectoryName(photo) ?? _rootPath;
             var filename = Path.GetFileNameWithoutExtension(photo);
-            var thumbnailPath = $"{_rootPath}{Path.DirectorySeparatorChar}{filename}{ThumbnailPostfix}.webp";
+            var thumbnailPath = Path.Combine(directory, $"{filename}{ThumbnailPostfix}.webp");
 
             if (File.Exists(thumbnailPath))
                 continue;
@@ -182,15 +180,22 @@ public sealed partial class PhotosService : IPhotosService
     {
         _logger.LogInformation("Retrieving thumbnail URLs");
 
-        var thumbnails = Directory.EnumerateFiles(_rootPath, $"*{ThumbnailPostfix}.webp", SearchOption.TopDirectoryOnly)
+        var thumbnails = Directory.EnumerateFiles(_rootPath, $"*{ThumbnailPostfix}.webp", SearchOption.AllDirectories)
+            .Where(IsNotDsmThumbnailDir)
             .Select(f =>
             {
-                var fileName = Path.GetFileName(f);
-                return $"{SlideshowConstants.BaseRoute}/{fileName}";
+                var relativePath = Path.GetRelativePath(_rootPath, f);
+                return $"{BaseRoute}/{relativePath.Replace(Path.DirectorySeparatorChar, '/')}";
             })
             .ToList();
 
         return Task.FromResult<IReadOnlyList<string>>(thumbnails);
+    }
+
+    private static bool IsNotDsmThumbnailDir(string filePath)
+    {
+        return !filePath.Contains($"{Path.DirectorySeparatorChar}{DsmThumbnailDir}{Path.DirectorySeparatorChar}") && 
+               !filePath.Contains($"{Path.DirectorySeparatorChar}{DsmThumbnailDir}");
     }
 
     private static (int scaledWidth, int scaledHeight) ScaleThumbnailDimensions(Image image, int maxDimension)
@@ -217,7 +222,7 @@ public sealed partial class PhotosService : IPhotosService
         try
         {
             var fileName = Path.GetRelativePath(_rootPath, filePath);
-            var url = $"{SlideshowConstants.BaseRoute}/{fileName.Replace(Path.DirectorySeparatorChar, '/')}";
+            var url = $"{BaseRoute}/{fileName.Replace(Path.DirectorySeparatorChar, '/')}";
             var imageInfo = await Image.IdentifyAsync(filePath, cancellationToken);
             var exifProfile = imageInfo.Metadata.ExifProfile;
 

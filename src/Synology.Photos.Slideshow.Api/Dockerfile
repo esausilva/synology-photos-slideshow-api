@@ -24,5 +24,6 @@ COPY --from=publish /app/publish .
 #RUN mkdir -p /app/logs && chown -R $APP_UID:$APP_UID /app/logs
 #USER $APP_UID
 RUN mkdir -p /app/slides
+RUN mkdir -p /app/slides/favorites
 RUN mkdir -p /app/logs
 ENTRYPOINT ["dotnet", "Synology.Photos.Slideshow.Api.dll"]

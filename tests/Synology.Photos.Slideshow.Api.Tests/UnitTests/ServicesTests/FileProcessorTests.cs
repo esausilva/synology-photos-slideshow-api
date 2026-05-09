@@ -56,6 +56,30 @@ public class FileProcessorTests
     }
 
     [Test]
+    public async Task Assert_CleanDownloadDirectory_Deletes_Nested_Directories_But_Skips_Favorites()
+    {
+        using var temp = new TempDirectory();
+        temp.WriteFile(Path.Combine("nested", "a.jpg"), "binary");
+        temp.WriteFile(Path.Combine("favorites", "b.jpg"), "binary");
+
+        var processor = CreateProcessor(temp.Path);
+
+        await processor.CleanDownloadDirectory(CancellationToken.None);
+
+        await Assert
+            .That(Directory.Exists(Path.Combine(temp.Path, "nested")))
+            .IsFalse();
+
+        await Assert
+            .That(Directory.Exists(Path.Combine(temp.Path, "favorites")))
+            .IsTrue();
+
+        await Assert
+            .That(File.Exists(Path.Combine(temp.Path, "favorites", "b.jpg")))
+            .IsTrue();
+    }
+
+    [Test]
     public async Task Assert_CleanDownloadDirectory_Is_Noop_When_Directory_Missing()
     {
         var missingPath = Path.Combine(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}");
@@ -129,6 +153,50 @@ public class FileProcessorTests
         await Assert
             .That(Directory.GetDirectories(temp.Path).Length)
             .IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Assert_ProcessZipFile_Flattens_And_Skips_Favorites()
+    {
+        using var temp = new TempDirectory();
+        const string zipName = "download.zip";
+        var zipPath = Path.Combine(temp.Path, zipName);
+
+        await using (var archive = await ZipFile.OpenAsync(zipPath, ZipArchiveMode.Create))
+        {
+            var entry = archive.CreateEntry("outer/inner/nested.txt");
+            await using var stream = await entry.OpenAsync();
+            await using var writer = new StreamWriter(stream);
+            await writer.WriteAsync("hello");
+        }
+
+        temp.WriteFile(Path.Combine("favorites", "saved.txt"), "binary");
+
+        var processor = CreateProcessor(temp.Path, downloadFileName: zipName);
+
+        await processor.ProcessZipFile(CancellationToken.None);
+
+        await Assert
+            .That(File.Exists(zipPath))
+            .IsFalse();
+
+        var flattened = Path.Combine(temp.Path, "nested.txt");
+        await Assert
+            .That(File.Exists(flattened))
+            .IsTrue();
+
+        var saved = Path.Combine(temp.Path, "favorites", "saved.txt");
+        await Assert
+            .That(File.Exists(saved))
+            .IsTrue();
+
+        await Assert
+            .That(Directory.Exists(Path.Combine(temp.Path, "favorites")))
+            .IsTrue();
+        
+        await Assert
+            .That(Directory.GetDirectories(temp.Path).Length)
+            .IsEqualTo(1);
     }
 
     [Test]

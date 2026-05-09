@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using Microsoft.Extensions.Options;
 using Synology.Photos.Slideshow.Api.Configuration;
+using static Synology.Photos.Slideshow.Api.Constants.SlideshowConstants;
 
 namespace Synology.Photos.Slideshow.Api.Slideshow.Services;
 
@@ -45,6 +46,9 @@ public sealed partial class FileProcessor : IFileProcessor
             var directories = Directory.GetDirectories(rootPath);
             foreach (var dir in directories)
             {
+                if (Path.GetFileName(dir).Equals(FavoritesFolderName, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
                 Directory.Delete(dir, true);
             }
 
@@ -59,10 +63,9 @@ public sealed partial class FileProcessor : IFileProcessor
     public async Task ProcessZipFile(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Processing downloaded zip file");
-
-        var zipPath = Path.Combine(_synoApiOptions.CurrentValue.DownloadAbsolutePath,
-            _synoApiOptions.CurrentValue.DownloadFileName);
-        var extractPath = _synoApiOptions.CurrentValue.DownloadAbsolutePath;
+        
+        var rootPath = _synoApiOptions.CurrentValue.DownloadAbsolutePath;
+        var zipPath = Path.Combine(rootPath, _synoApiOptions.CurrentValue.DownloadFileName);
 
         if (!File.Exists(zipPath))
         {
@@ -70,12 +73,12 @@ public sealed partial class FileProcessor : IFileProcessor
             return;
         }
 
-        await UnzipPhotos(zipPath, extractPath, cancellationToken);
+        await UnzipPhotos(zipPath, rootPath, cancellationToken);
         
         if (File.Exists(zipPath))
             File.Delete(zipPath);
         
-        await FlattenDirectory(extractPath, cancellationToken);
+        await FlattenDirectory(rootPath, cancellationToken);
 
         _logger.LogInformation("Finished processing zip file");
     }
@@ -102,8 +105,13 @@ public sealed partial class FileProcessor : IFileProcessor
             {
                 LogDeletingPhotoWithNameName(currentPhoto);
 
-                var photoPath = Path.Combine(rootPath, currentPhoto);
-                File.Delete(photoPath);
+                var photoPath = Directory
+                    .EnumerateFiles(rootPath, currentPhoto, SearchOption.AllDirectories)
+                    .FirstOrDefault(f => !f.Contains($"{Path.DirectorySeparatorChar}{DsmThumbnailDir}{Path.DirectorySeparatorChar}") &&
+                                         !f.Contains($"{Path.DirectorySeparatorChar}{DsmThumbnailDir}"));
+
+                if (photoPath is not null)
+                    File.Delete(photoPath);
             }
         }, cancellationToken);
     }
@@ -122,8 +130,12 @@ public sealed partial class FileProcessor : IFileProcessor
             foreach (var file in Directory.EnumerateFiles(rootPath, "*.*", SearchOption.AllDirectories))
             {
                 var fileName = Path.GetFileName(file);
+                var relativePath = Path.GetRelativePath(rootPath, file);
 
                 if (fileName.Equals(macOsMetadataFile, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (relativePath.StartsWith($"{FavoritesFolderName}{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
                     continue;
                 
                 if (Path.GetDirectoryName(file) == rootPath) 
@@ -136,6 +148,9 @@ public sealed partial class FileProcessor : IFileProcessor
 
             foreach (var dir in Directory.EnumerateDirectories(rootPath))
             {
+                if (Path.GetFileName(dir).Equals(FavoritesFolderName, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
                 Directory.Delete(dir, true);
             }
         }, cancellationToken);
