@@ -554,8 +554,33 @@ I would like to add the following features (in no particular order):
 | :-------------------------- |:------------------------------------------------------------------------------------------------------------------------------------------------|:-------|
 | **Scheduled Jobs**          | Automates downloading new photo sets in the background at set intervals.                                                                        | ✅     |
 | **Real-time Notifications** | Uses SignalR or SSE to notify the client when new photos are available. A predecessor to this is to have the background job feature completed.  | ✅     |
-| **Permanent Folder**        | A dedicated folder for specific photos (e.g., recent trips) that bypasses the auto-clean process.                                               |        |
+| **Permanent Folder**        | A dedicated folder for specific photos (e.g., recent trips) that bypasses the auto-clean process.                                               | ✅     |
 | **Delete Endpoint**         | Allows removing specific photos from the slideshow cache without deleting the original NAS files.                                               | ✅     |
+| **Metadata Refactoring**    | Updates endpoints to include photo date, location, and mapping data.                                                                            | ✅     |
+| **Blacklist System**        | An endpoint to permanently prevent specific photos from appearing in the slideshow.                                                             |        |
+| **Download Configuration**  | Enables the client application to define how many photos are fetched.                                                                           |        |
+
+What else? Will see...
+
+## Client App
+
+The web client app is available at: [Synology Photos Slideshow Client](https://github.com/esausilva/synology-photos-slideshow-client)
+
+## Shameless Plug
+
+I am using my own **Synology API SDK** to do the heavy lifting of interacting with the official Synology API to fetch the photos and request the download.
+
+Check it out: 
+
+- GitHub Repo: [Synology API SDK](https://github.com/esausilva/synology-api-sdk)
+- NuGet Package: [Synology.API.SDK](https://www.nuget.org/packages/Synology.API.SDK)
+
+## Giving Back
+
+If you find this project useful in any way, consider getting me a coffee by clicking on the image below. I would really appreciate it!
+
+[![Buy Me A Coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/esausilva)
+original NAS files.                                               | ✅     |
 | **Metadata Refactoring**    | Updates endpoints to include photo date, location, and mapping data.                                                                            | ✅     |
 | **Blacklist System**        | An endpoint to permanently prevent specific photos from appearing in the slideshow.                                                             |        |
 | **Download Configuration**  | Enables the client application to define how many photos are fetched.                                                                           |        |
