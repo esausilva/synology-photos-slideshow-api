@@ -359,7 +359,6 @@ The API includes a **reactive background worker** that monitors a dedicated `fav
 
 | Option                   | Type    | Description                                                                 | Default |
 |:-------------------------|:--------|:----------------------------------------------------------------------------|:--------|
-| `EnableWatcher`          | Boolean | Enables or disables the real-time folder watcher.                           | `true`  |
 | `DebounceDelayInSeconds` | Integer | Seconds to wait for "silence" before starting processing after a file event. | `10`    |
 
 Example configuration in `appsettings.json`:
@@ -367,7 +366,6 @@ Example configuration in `appsettings.json`:
 ```json
 {
   "FavoritesWatcherOptions": {
-    "EnableWatcher": true,
     "DebounceDelayInSeconds": 10
   }
 }
@@ -415,6 +413,9 @@ Update the following app settings in `appsettings.json` or create a .NET User Se
     "Minute": 3,
     "TimeZoneId": "America/Chicago"
   },
+  "FavoritesWatcherOptions": {
+    "DebounceDelayInSeconds": 10
+  }
   "ConnectionStrings": {
     "Redis": "<<REDIS_CONNECTION_STRING>>"
   }
@@ -439,7 +440,6 @@ Update the following app settings in `appsettings.json` or create a .NET User Se
 | `PhotoDownloadScheduledJobOptions.Hour`       | Hour of the day to run the job (24-hour format)                  | 0-23                                                                               |
 | `PhotoDownloadScheduledJobOptions.Minute`     | Minute of the hour to run the job                                | 0-59                                                                               |
 | `PhotoDownloadScheduledJobOptions.TimeZoneId` | IANA time zone ID used to schedule the job                       | e.g., `America/Chicago`, `America/New_York`                                        |
-| `FavoritesWatcherOptions.EnableWatcher`       | Enable or disable the real-time favorites folder watcher         | **true** (default)                                                                 |
 | `FavoritesWatcherOptions.DebounceDelayInSeconds` | Seconds to wait before processing after a file change         | **10** (default)                                                                   |
 | `ConnectionStrings.Redis`                   | Redis connection string                                          | e.g.,`localhost:6379,abortConnect=false,connectTimeout=10000`                      |
 
@@ -484,6 +484,7 @@ services:
       - PhotoDownloadScheduledJobOptions:Hour=12
       - PhotoDownloadScheduledJobOptions:Minute=3
       - PhotoDownloadScheduledJobOptions:TimeZoneId=America/Chicago
+      - FavoritesWatcherOptions:DebounceDelayInSeconds=10
       - ConnectionStrings:Redis=redis.slideshow:6379,abortConnect=false,connectTimeout=10000
     volumes:
       - ./.slides:/app/slides
@@ -576,7 +577,6 @@ The environment variables will be as follows:
 | PhotoDownloadScheduledJobOptions:Hour       | 12                                                         |
 | PhotoDownloadScheduledJobOptions:Minute     | 3                                                          |
 | PhotoDownloadScheduledJobOptions:TimeZoneId | America/Chicago                                            |
-| FavoritesWatcherOptions:EnableWatcher     | true                                                       |
 | FavoritesWatcherOptions:DebounceDelayInSeconds | 10                                                    |
 | ConnectionStrings:Redis                   | [[SERVER_IP]]:6379,abortConnect=false,connectTimeout=10000 |
 
