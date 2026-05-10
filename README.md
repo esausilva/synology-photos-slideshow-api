@@ -8,6 +8,7 @@ An API that downloads random photos from a Synology NAS, converts them to WebP, 
 2. Photos are served as static files under `/slideshow`.
 3. `GET /photos/slides` returns metadata for the files currently in the slideshow folder.
 4. An optional **scheduled background job** powered by **Hangfire** can be configured to automatically download and process new photo sets at set intervals.
+5. A **Favorites Folder Watcher** automatically detects, processes, and thumbnails photos manually placed in the `favorites` subfolder, ensuring curated photos are always available.
 
 The API is intended to run on your Synology NAS and be accessed only from your local network.
 
@@ -26,6 +27,7 @@ The API is intended to run on your Synology NAS and be accessed only from your l
     - [Client Methods](#client-methods)
   - [Features](#features)
     - [Scheduled Photo Download Job](#scheduled-photo-download-job)
+    - [Favorites Folder Watcher](#favorites-folder-watcher)
   - [Logging](#logging)
   - [Local Development](#local-development)
   - [Docker (Local)](#docker-local)
@@ -53,6 +55,7 @@ graph TD
     subgraph Background Processing
         PhotoChannel[Photo Processing Channel]
         PhotoWorker[Photo Processing Worker]
+        FavoritesWatcher[Favorites Folder Watcher]
         Hangfire[Hangfire Scheduled Job]
     end
 
@@ -65,6 +68,10 @@ graph TD
     PhotoWorker -->|Read| PhotoChannel
     PhotoWorker -->|Convert WebP| FS
     PhotoWorker -->|Notify| SignalR
+
+    FS -.->|File Events| FavoritesWatcher
+    FavoritesWatcher -->|Convert & Thumbnail| FS
+    FavoritesWatcher -->|Notify| SignalR
 
     Hangfire -->|Execute| API
     SignalR -.->|Real-time Updates| Client
@@ -335,6 +342,37 @@ This example schedules the job to run every **Sunday at 12:03 PM** in the `Ameri
 - `TimeZoneId` must be a valid IANA time zone ID. See [List of IANA time zones](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) for valid values.
 - The Hangfire dashboard is available at `/jobs` for monitoring job execution history and status.
 
+### Favorites Folder Watcher
+
+The API includes a **reactive background worker** that monitors a dedicated `favorites` subfolder within your download directory. This folder is **protected** from the automatic cleanup process that happens during random photo downloads.
+
+#### How it works:
+1. When you manually place or upload photos (JPG, PNG, etc.) into the `favorites` folder, the worker detects the new files. Manual uploading can happen via several methods, including:
+   - Using the **DS File** mobile app.
+   - Using **DiskStation Manager (DSM)** File Station in your browser.
+   - Using a **mapped network drive** (SMB/NFS) on your computer.
+2. It implements a **sliding debounce timer** (default 10s) to handle batch uploads efficiently.
+3. Once activity stops, it automatically converts the photos to WebP, generates thumbnails, and notifies all SignalR clients to refresh the slideshow.
+4. Any files added while processing is already in progress are queued and processed sequentially.
+
+#### Configuration Options:
+
+| Option                   | Type    | Description                                                                 | Default |
+|:-------------------------|:--------|:----------------------------------------------------------------------------|:--------|
+| `EnableWatcher`          | Boolean | Enables or disables the real-time folder watcher.                           | `true`  |
+| `DebounceDelayInSeconds` | Integer | Seconds to wait for "silence" before starting processing after a file event. | `10`    |
+
+Example configuration in `appsettings.json`:
+
+```json
+{
+  "FavoritesWatcherOptions": {
+    "EnableWatcher": true,
+    "DebounceDelayInSeconds": 10
+  }
+}
+```
+
 ## Logging
 
 Logs are written to `./logs` with daily rolling JSON files (for example, `api-logs_20260221.json`).
@@ -401,6 +439,8 @@ Update the following app settings in `appsettings.json` or create a .NET User Se
 | `PhotoDownloadScheduledJobOptions.Hour`       | Hour of the day to run the job (24-hour format)                  | 0-23                                                                               |
 | `PhotoDownloadScheduledJobOptions.Minute`     | Minute of the hour to run the job                                | 0-59                                                                               |
 | `PhotoDownloadScheduledJobOptions.TimeZoneId` | IANA time zone ID used to schedule the job                       | e.g., `America/Chicago`, `America/New_York`                                        |
+| `FavoritesWatcherOptions.EnableWatcher`       | Enable or disable the real-time favorites folder watcher         | **true** (default)                                                                 |
+| `FavoritesWatcherOptions.DebounceDelayInSeconds` | Seconds to wait before processing after a file change         | **10** (default)                                                                   |
 | `ConnectionStrings.Redis`                   | Redis connection string                                          | e.g.,`localhost:6379,abortConnect=false,connectTimeout=10000`                      |
 
 Refer to [Endpoints](#endpoints) on how to call the API endpoints.
@@ -536,6 +576,8 @@ The environment variables will be as follows:
 | PhotoDownloadScheduledJobOptions:Hour       | 12                                                         |
 | PhotoDownloadScheduledJobOptions:Minute     | 3                                                          |
 | PhotoDownloadScheduledJobOptions:TimeZoneId | America/Chicago                                            |
+| FavoritesWatcherOptions:EnableWatcher     | true                                                       |
+| FavoritesWatcherOptions:DebounceDelayInSeconds | 10                                                    |
 | ConnectionStrings:Redis                   | [[SERVER_IP]]:6379,abortConnect=false,connectTimeout=10000 |
 
 Refer to [Photo Location](./docs/photo-location.md) and [Redis](./docs/redis.md) for geolocation and caching, including getting the Google Maps API.
@@ -556,31 +598,6 @@ I would like to add the following features (in no particular order):
 | **Real-time Notifications** | Uses SignalR or SSE to notify the client when new photos are available. A predecessor to this is to have the background job feature completed.  | ✅     |
 | **Permanent Folder**        | A dedicated folder for specific photos (e.g., recent trips) that bypasses the auto-clean process.                                               | ✅     |
 | **Delete Endpoint**         | Allows removing specific photos from the slideshow cache without deleting the original NAS files.                                               | ✅     |
-| **Metadata Refactoring**    | Updates endpoints to include photo date, location, and mapping data.                                                                            | ✅     |
-| **Blacklist System**        | An endpoint to permanently prevent specific photos from appearing in the slideshow.                                                             |        |
-| **Download Configuration**  | Enables the client application to define how many photos are fetched.                                                                           |        |
-
-What else? Will see...
-
-## Client App
-
-The web client app is available at: [Synology Photos Slideshow Client](https://github.com/esausilva/synology-photos-slideshow-client)
-
-## Shameless Plug
-
-I am using my own **Synology API SDK** to do the heavy lifting of interacting with the official Synology API to fetch the photos and request the download.
-
-Check it out: 
-
-- GitHub Repo: [Synology API SDK](https://github.com/esausilva/synology-api-sdk)
-- NuGet Package: [Synology.API.SDK](https://www.nuget.org/packages/Synology.API.SDK)
-
-## Giving Back
-
-If you find this project useful in any way, consider getting me a coffee by clicking on the image below. I would really appreciate it!
-
-[![Buy Me A Coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/esausilva)
-original NAS files.                                               | ✅     |
 | **Metadata Refactoring**    | Updates endpoints to include photo date, location, and mapping data.                                                                            | ✅     |
 | **Blacklist System**        | An endpoint to permanently prevent specific photos from appearing in the slideshow.                                                             |        |
 | **Download Configuration**  | Enables the client application to define how many photos are fetched.                                                                           |        |
