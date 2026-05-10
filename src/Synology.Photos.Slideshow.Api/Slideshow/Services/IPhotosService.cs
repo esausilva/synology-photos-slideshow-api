@@ -5,7 +5,9 @@ namespace Synology.Photos.Slideshow.Api.Slideshow.Services;
 public interface IPhotosService
 {
     Task ProcessPhotos(CancellationToken cancellationToken);
+    Task ProcessPhotos(string searchPath, CancellationToken cancellationToken);
     Task<IReadOnlyList<SlideResponse>> GetSlides(bool includeThumbnails, CancellationToken cancellationToken);
     Task CreateThumbnails(CancellationToken cancellationToken);
+    Task CreateThumbnails(string searchPath, CancellationToken cancellationToken);
     Task<IReadOnlyList<string>> GetThumbnails(CancellationToken cancellationToken);
 }

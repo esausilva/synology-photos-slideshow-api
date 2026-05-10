@@ -26,11 +26,6 @@ public sealed partial class PhotosService : IPhotosService
         ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff"
     };
 
-    private static readonly HashSet<string> ImageExtensionsForConversion = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".jpg", ".jpeg", ".png", ".bmp", ".tiff"
-    };
-
     public PhotosService(
         IOptionsMonitor<SynoApiOptions> synoApiOptions, 
         IOptionsMonitor<ThirdPartyServices> thirdPartyServices,
@@ -51,13 +46,25 @@ public sealed partial class PhotosService : IPhotosService
     /// </summary>
     /// <param name="cancellationToken">The cancellation token used to cancel the operation.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    public async Task ProcessPhotos(CancellationToken cancellationToken)
+    public Task ProcessPhotos(CancellationToken cancellationToken) 
+        => ProcessPhotosCore(_rootPath, cancellationToken);
+
+    /// <summary>
+    /// Processes photos in the specified search path by resizing and converting them to the WebP format.
+    /// </summary>
+    /// <param name="searchPath">The path to process photos in.</param>
+    /// <param name="cancellationToken">The cancellation token used to cancel the operation.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    public Task ProcessPhotos(string searchPath, CancellationToken cancellationToken) 
+        => ProcessPhotosCore(searchPath, cancellationToken);
+
+    private async Task ProcessPhotosCore(string path, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Converting photos to web format");
+        LogConvertingPhotosToWebFormatInPath(path);
 
         var stopwatch = Stopwatch.StartNew();
 
-        var photos = Directory.EnumerateFiles(_rootPath, "*", SearchOption.AllDirectories)
+        var photos = Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories)
             .Where(IsNotDsmThumbnailDir)
             .Where(f => ImageExtensionsForConversion.Contains(Path.GetExtension(f)));
         
@@ -71,7 +78,7 @@ public sealed partial class PhotosService : IPhotosService
             image.Mutate(i => i.AutoOrient());
 
             var (scaledWidth, scaledHeight) = ScaleImageDimensions(image, scale: 0.8);
-            var directory = Path.GetDirectoryName(photo) ?? _rootPath;
+            var directory = Path.GetDirectoryName(photo) ?? path;
             var filename = Path.GetFileNameWithoutExtension(photo);
 
             image.Mutate(i => i.Resize(scaledWidth, scaledHeight));
@@ -125,21 +132,33 @@ public sealed partial class PhotosService : IPhotosService
     /// </summary>
     /// <param name="cancellationToken">The cancellation token used to cancel the operation.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    public async Task CreateThumbnails(CancellationToken cancellationToken)
+    public Task CreateThumbnails(CancellationToken cancellationToken) 
+        => CreateThumbnailsCore(_rootPath, cancellationToken);
+
+    /// <summary>
+    /// Creates thumbnail versions of processed WebP photos in the specified search path.
+    /// </summary>
+    /// <param name="searchPath">The path to create thumbnails in.</param>
+    /// <param name="cancellationToken">The cancellation token used to cancel the operation.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    public Task CreateThumbnails(string searchPath, CancellationToken cancellationToken) 
+        => CreateThumbnailsCore(searchPath, cancellationToken);
+
+    private async Task CreateThumbnailsCore(string path, CancellationToken cancellationToken)
     {
         const int thumbnailMaxDimension = 400;
         
-        _logger.LogInformation("Creating thumbnails for gallery view");
+        LogCreatingThumbnailsForGalleryViewInPath(path);
 
         var stopwatch = Stopwatch.StartNew();
 
-        var photos = Directory.EnumerateFiles(_rootPath, "*.webp", SearchOption.AllDirectories)
+        var photos = Directory.EnumerateFiles(path, "*.webp", SearchOption.AllDirectories)
             .Where(IsNotDsmThumbnailDir)
             .Where(f => !Path.GetFileNameWithoutExtension(f).EndsWith(ThumbnailPostfix, StringComparison.OrdinalIgnoreCase));
 
         foreach (var photo in photos)
         {
-            var directory = Path.GetDirectoryName(photo) ?? _rootPath;
+            var directory = Path.GetDirectoryName(photo) ?? path;
             var filename = Path.GetFileNameWithoutExtension(photo);
             var thumbnailPath = Path.Combine(directory, $"{filename}{ThumbnailPostfix}.webp");
 
@@ -365,4 +384,10 @@ public sealed partial class PhotosService : IPhotosService
 
     [LoggerMessage(LogLevel.Information, "Thumbnails created in {ElapsedMilliseconds}ms")]
     partial void LogThumbnailsCreatedInElapsedMillisecondsMs(long elapsedMilliseconds);
+
+    [LoggerMessage(LogLevel.Information, "Converting photos to web format in {Path}")]
+    partial void LogConvertingPhotosToWebFormatInPath(string path);
+
+    [LoggerMessage(LogLevel.Information, "Creating thumbnails for gallery view in {Path}")]
+    partial void LogCreatingThumbnailsForGalleryViewInPath(string path);
 }

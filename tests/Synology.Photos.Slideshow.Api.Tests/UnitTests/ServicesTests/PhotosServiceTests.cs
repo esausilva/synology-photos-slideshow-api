@@ -61,6 +61,62 @@ public class PhotosServiceTests
     }
 
     [Test]
+    public async Task Assert_ProcessPhotos_With_Path_Only_Processes_Target_Directory()
+    {
+        using var temp = new TempDirectory();
+        var favoritesPath = Path.Combine(temp.Path, "favorites");
+        var otherPath = Path.Combine(temp.Path, "other");
+        Directory.CreateDirectory(favoritesPath);
+        Directory.CreateDirectory(otherPath);
+        
+        await WriteJpegAsync(Path.Combine(favoritesPath, "fav.jpg"), width: 200, height: 200);
+        await WriteJpegAsync(Path.Combine(otherPath, "other.jpg"), width: 200, height: 200);
+
+        var harness = CreateHarness(temp.Path);
+
+        await harness.Service.ProcessPhotos(favoritesPath, CancellationToken.None);
+
+        await Assert
+            .That(File.Exists(Path.Combine(favoritesPath, "fav.webp")))
+            .IsTrue();
+            
+        await Assert
+            .That(File.Exists(Path.Combine(otherPath, "other.webp")))
+            .IsFalse();
+
+        await harness.FileProcessor
+            .Received(1)
+            .DeletePhotos(
+                Arg.Is<IList<string>>(l => l.Count == 1 && l[0] == Path.Combine("favorites", "fav.jpg")),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task Assert_CreateThumbnails_With_Path_Only_Processes_Target_Directory()
+    {
+        using var temp = new TempDirectory();
+        var favoritesPath = Path.Combine(temp.Path, "favorites");
+        var otherPath = Path.Combine(temp.Path, "other");
+        Directory.CreateDirectory(favoritesPath);
+        Directory.CreateDirectory(otherPath);
+        
+        await WriteWebpAsync(Path.Combine(favoritesPath, "fav.webp"));
+        await WriteWebpAsync(Path.Combine(otherPath, "other.webp"));
+
+        var harness = CreateHarness(temp.Path);
+
+        await harness.Service.CreateThumbnails(favoritesPath, CancellationToken.None);
+
+        await Assert
+            .That(File.Exists(Path.Combine(favoritesPath, "fav__thumb.webp")))
+            .IsTrue();
+            
+        await Assert
+            .That(File.Exists(Path.Combine(otherPath, "other__thumb.webp")))
+            .IsFalse();
+    }
+
+    [Test]
     public async Task Assert_GetThumbnails_Returns_Only_Thumbnail_Files()
     {
         using var temp = new TempDirectory();

@@ -30,6 +30,13 @@ public sealed class ThumbnailProcessingWorker : BackgroundService
         _resiliencePipeline = CreateResiliencePipeline();
     }
 
+    /// <summary>
+    /// Executes the background worker process to handle thumbnail processing tasks.
+    /// Continuously listens for messages from the processing channel, processes thumbnails,
+    /// and notifies clients of updates or errors.
+    /// </summary>
+    /// <param name="stoppingToken">A cancellation token that is triggered when the worker service should stop processing.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("ThumbnailProcessingWorker started, waiting for messages...");

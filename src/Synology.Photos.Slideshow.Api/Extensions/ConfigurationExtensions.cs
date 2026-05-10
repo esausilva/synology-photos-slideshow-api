@@ -52,6 +52,7 @@ public static class ConfigurationExtensions
             
             services.AddHostedService<PhotoProcessingWorker>();
             services.AddHostedService<ThumbnailProcessingWorker>();
+            services.AddHostedService<FavoritesFolderWatcherWorker>();
             
             return services;
         }
@@ -82,6 +83,11 @@ public static class ConfigurationExtensions
                 .AddOptionsWithValidateOnStart<PhotoDownloadScheduledJobOptions>()
                 .ValidateDataAnnotations()
                 .Bind(configuration.GetSection(nameof(PhotoDownloadScheduledJobOptions)));
+
+            services
+                .AddOptionsWithValidateOnStart<FavoritesWatcherOptions>()
+                .ValidateDataAnnotations()
+                .Bind(configuration.GetSection(nameof(FavoritesWatcherOptions)));
         }
         
         private void ConfigureLocationService(ConfigurationManager configuration)
