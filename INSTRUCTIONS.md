@@ -55,7 +55,10 @@ graph TD
     
     subgraph Background Processing
         PhotoChannel[Photo Processing Channel]
+        ThumbChannel[Thumbnail Processing Channel]
         PhotoWorker[Photo Processing Worker]
+        ThumbWorker[Thumbnail Processing Worker]
+        FavWorker[Favorites Folder Watcher]
         Hangfire[Hangfire Scheduled Job]
     end
 
@@ -65,9 +68,17 @@ graph TD
     API -->|Publish| PhotoChannel
     API -->|Return 204| Client
 
+    FavWorker -->|Monitor| FS
+    FavWorker -->|Convert & Notify| SignalR
+
     PhotoWorker -->|Read| PhotoChannel
     PhotoWorker -->|Convert WebP| FS
+    PhotoWorker -->|Publish| ThumbChannel
     PhotoWorker -->|Notify| SignalR
+
+    ThumbWorker -->|Read| ThumbChannel
+    ThumbWorker -->|Generate Thumbnails| FS
+    ThumbWorker -->|Notify| SignalR
 
     Hangfire -->|Execute| API
     SignalR -.->|Real-time Updates| Client
@@ -83,7 +94,7 @@ Photo download is async: endpoint queues work into a `System.Threading.Channels`
 
 - **Slideshow/Endpoints/** — Minimal API endpoint handlers (`GetSlides`, `DownloadPhotos`, `DeletePhotos`, `Thumbnails`)
 - **Slideshow/Services/** — Core business logic: NAS search, file download/extraction, WebP conversion, EXIF metadata, geolocation
-- **Slideshow/BackgroundServices/** — Channel consumers (`PhotoProcessingWorker`, `ThumbnailProcessingWorker`) with Polly retry
+- **Slideshow/BackgroundServices/** — Channel consumers (`PhotoProcessingWorker`, `ThumbnailProcessingWorker`) and directory monitors (`FavoritesFolderWatcherWorker`) with Polly retry
 - **Slideshow/Jobs/** — Hangfire scheduled job (`PhotoDownloadJob`) for weekly auto-downloads
 - **Slideshow/Messaging/** — Channel abstractions (`IPhotoProcessingChannel`, `IPhotoThumbnailProcessingChannel`)
 - **Slideshow/Auth/** — Two auth patterns: `ISynologyAuthenticationContext` (scoped, from HTTP context) and `IBackgroundJobSynologyAuthentication` (transient, re-authenticates for background jobs)
@@ -101,6 +112,7 @@ Photo download is async: endpoint queues work into a `System.Threading.Channels`
 - **Serilog** structured JSON logging to `./logs/` with daily rolling files
 - **HybridCache** (in-memory + optional Redis) for geolocation results
 - **SixLabors.ImageSharp** for image processing: WebP encoding (75% quality photos, 60% thumbnails), EXIF extraction, auto-orientation, metadata stripping on thumbnails
+- **Conditional Mocking**: `GoogleLocationService` is swapped for `GoogleLocationServiceMock` in `DEBUG` mode if `GoogleMapsOptions.EnableMocks` is true.
 
 ### SignalR Client Methods
 
@@ -122,7 +134,7 @@ No database — file system is the persistent store. Photos saved to `/app/slide
 
 ### Configuration
 
-Key `appsettings.json` sections: `UriBase` (NAS connection), `SynologyUser` (credentials), `SynoApiOptions` (search folders, download count/path), `ThirdPartyServices` (feature flags for geolocation/Redis), `GoogleMapsOptions` (geocoding API), `PhotoDownloadScheduledJobOptions` (weekly job schedule with timezone).
+Key `appsettings.json` sections: `UriBase` (NAS connection), `SynologyUser` (credentials), `SynoApiOptions` (search folders, download count/path), `ThirdPartyServices` (feature flags for geolocation/Redis), `GoogleMapsOptions` (geocoding API), `PhotoDownloadScheduledJobOptions` (weekly job schedule with timezone), `FavoritesWatcherOptions` (debounced folder monitoring).
 
 ### No Authentication
 
