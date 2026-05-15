@@ -7,6 +7,7 @@ using SixLabors.ImageSharp.Metadata.Profiles.Exif;
 using SixLabors.ImageSharp.Processing;
 using Synology.Photos.Slideshow.Api.Configuration;
 using Synology.Photos.Slideshow.Api.Slideshow.Endpoints.Response;
+using Synology.Photos.Slideshow.Api.Slideshow.Extensions;
 using static Synology.Photos.Slideshow.Api.Constants.SlideshowConstants;
 
 namespace Synology.Photos.Slideshow.Api.Slideshow.Services;
@@ -18,8 +19,6 @@ public sealed partial class PhotosService : IPhotosService
     private readonly ILocationService _locationService;
     private readonly IFileProcessor _fileProcessor;
     private readonly ILogger<PhotosService> _logger;
-
-    private const string ThumbnailPostfix = "__thumb";
 
     private static readonly HashSet<string> ValidImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -65,7 +64,7 @@ public sealed partial class PhotosService : IPhotosService
         var stopwatch = Stopwatch.StartNew();
 
         var photos = Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories)
-            .Where(IsNotDsmThumbnailDir)
+            .Where(StringExtensions.IsNotDsmThumbnailDir)
             .Where(f => ImageExtensionsForConversion.Contains(Path.GetExtension(f)));
         
         var photosToDelete = new List<string>();
@@ -110,7 +109,7 @@ public sealed partial class PhotosService : IPhotosService
         _logger.LogInformation("Retrieving photo metadata and creating relative URLs");
 
         var photos = Directory.EnumerateFiles(_rootPath, "*", SearchOption.AllDirectories)
-            .Where(IsNotDsmThumbnailDir)
+            .Where(StringExtensions.IsNotDsmThumbnailDir)
             .Where(f => ValidImageExtensions.Contains(Path.GetExtension(f)));
         
         if (!includeThumbnails)
@@ -153,7 +152,7 @@ public sealed partial class PhotosService : IPhotosService
         var stopwatch = Stopwatch.StartNew();
 
         var photos = Directory.EnumerateFiles(path, "*.webp", SearchOption.AllDirectories)
-            .Where(IsNotDsmThumbnailDir)
+            .Where(StringExtensions.IsNotDsmThumbnailDir)
             .Where(f => !Path.GetFileNameWithoutExtension(f).EndsWith(ThumbnailPostfix, StringComparison.OrdinalIgnoreCase));
 
         foreach (var photo in photos)
@@ -200,7 +199,7 @@ public sealed partial class PhotosService : IPhotosService
         _logger.LogInformation("Retrieving thumbnail URLs");
 
         var thumbnails = Directory.EnumerateFiles(_rootPath, $"*{ThumbnailPostfix}.webp", SearchOption.AllDirectories)
-            .Where(IsNotDsmThumbnailDir)
+            .Where(StringExtensions.IsNotDsmThumbnailDir)
             .Select(f =>
             {
                 var relativePath = Path.GetRelativePath(_rootPath, f);
@@ -209,12 +208,6 @@ public sealed partial class PhotosService : IPhotosService
             .ToList();
 
         return Task.FromResult<IReadOnlyList<string>>(thumbnails);
-    }
-
-    private static bool IsNotDsmThumbnailDir(string filePath)
-    {
-        return !filePath.Contains($"{Path.DirectorySeparatorChar}{DsmThumbnailDir}{Path.DirectorySeparatorChar}") && 
-               !filePath.Contains($"{Path.DirectorySeparatorChar}{DsmThumbnailDir}");
     }
 
     private static (int scaledWidth, int scaledHeight) ScaleThumbnailDimensions(Image image, int maxDimension)

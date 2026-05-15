@@ -112,6 +112,29 @@ public class FileProcessorTests
     }
 
     [Test]
+    public async Task Assert_DeletePhotos_Deletes_Specified_Files_And_Their_Thumbnails()
+    {
+        using var temp = new TempDirectory();
+        var keepPath = temp.WriteFile("keep.webp", "binary");
+        temp.WriteFile("delete-1.webp", "binary");
+        temp.WriteFile("delete-1__thumb.webp", "binary");
+        temp.WriteFile("delete-2.webp", "binary");
+        temp.WriteFile("delete-2__thumb.webp", "binary");
+
+        var processor = CreateProcessor(temp.Path);
+
+        await processor.DeletePhotos(["delete-1.webp", "delete-2.webp"], CancellationToken.None);
+
+        await Assert
+            .That(File.Exists(keepPath))
+            .IsTrue();
+
+        await Assert
+            .That(Directory.GetFiles(temp.Path).Length)
+            .IsEqualTo(1);
+    }
+
+    [Test]
     public async Task Assert_DeletePhotos_Is_Noop_When_Directory_Missing()
     {
         var missingPath = Path.Combine(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}");

@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using Microsoft.Extensions.Options;
 using Synology.Photos.Slideshow.Api.Configuration;
+using Synology.Photos.Slideshow.Api.Slideshow.Extensions;
 using static Synology.Photos.Slideshow.Api.Constants.SlideshowConstants;
 
 namespace Synology.Photos.Slideshow.Api.Slideshow.Services;
@@ -105,15 +106,33 @@ public sealed partial class FileProcessor : IFileProcessor
             {
                 LogDeletingPhotoWithNameName(currentPhoto);
 
-                var photoPath = Directory
-                    .EnumerateFiles(rootPath, currentPhoto, SearchOption.AllDirectories)
-                    .FirstOrDefault(f => !f.Contains($"{Path.DirectorySeparatorChar}{DsmThumbnailDir}{Path.DirectorySeparatorChar}") &&
-                                         !f.Contains($"{Path.DirectorySeparatorChar}{DsmThumbnailDir}"));
+                var photoPath = FindFilePath(rootPath, currentPhoto);
 
-                if (photoPath is not null)
-                    File.Delete(photoPath);
+                if (photoPath is null) 
+                    continue;
+                
+                File.Delete(photoPath);
+
+                if (currentPhoto.EndsWith($"{ThumbnailPostfix}.webp", StringComparison.OrdinalIgnoreCase)) 
+                    continue;
+                    
+                var thumbnailName = $"{Path.GetFileNameWithoutExtension(currentPhoto)}{ThumbnailPostfix}.webp";
+                var thumbnailPath = FindFilePath(rootPath, thumbnailName);
+
+                if (thumbnailPath is null) 
+                    continue;
+                    
+                LogDeletingPhotoWithNameName(thumbnailName);
+                File.Delete(thumbnailPath);
             }
         }, cancellationToken);
+    }
+
+    private static string? FindFilePath(string rootPath, string fileName)
+    {
+        return Directory
+            .EnumerateFiles(rootPath, fileName, SearchOption.AllDirectories)
+            .FirstOrDefault(StringExtensions.IsNotDsmThumbnailDir);
     }
 
     private static async Task UnzipPhotos(string zipPath, string extractPath, CancellationToken cancellationToken)
