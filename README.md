@@ -54,8 +54,10 @@ graph TD
 
     subgraph Background Processing
         PhotoChannel[Photo Processing Channel]
+        ThumbChannel[Thumbnail Processing Channel]
         PhotoWorker[Photo Processing Worker]
-        FavoritesWatcher[Favorites Folder Watcher]
+        ThumbWorker[Thumbnail Processing Worker]
+        FavWorker[Favorites Folder Watcher]
         Hangfire[Hangfire Scheduled Job]
     end
 
@@ -65,13 +67,17 @@ graph TD
     API -->|Publish| PhotoChannel
     API -->|Return 204| Client
 
+    FavWorker -->|Monitor| FS
+    FavWorker -->|Convert & Notify| SignalR
+
     PhotoWorker -->|Read| PhotoChannel
     PhotoWorker -->|Convert WebP| FS
+    PhotoWorker -->|Publish| ThumbChannel
     PhotoWorker -->|Notify| SignalR
 
-    FS -.->|File Events| FavoritesWatcher
-    FavoritesWatcher -->|Convert & Thumbnail| FS
-    FavoritesWatcher -->|Notify| SignalR
+    ThumbWorker -->|Read| ThumbChannel
+    ThumbWorker -->|Generate Thumbnails| FS
+    ThumbWorker -->|Notify| SignalR
 
     Hangfire -->|Execute| API
     SignalR -.->|Real-time Updates| Client

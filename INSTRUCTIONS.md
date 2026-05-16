@@ -19,6 +19,18 @@ dotnet run --project src/Synology.Photos.Slideshow.Api
 docker-compose -f docker-compose.yaml -f docker-compose.local.yaml up -d --build
 ```
 
+## Docker
+
+```bash
+# Local — run when developing/testing locally
+docker-compose -f docker-compose.yaml -f docker-compose.local.yaml build
+docker-compose -f docker-compose.yaml -f docker-compose.local.yaml up -d
+
+# To deploy — run when pushing to Docker Hub
+docker-compose build
+docker push esausilva/synology.photos.slideshow.api:latest
+```
+
 ## Testing
 
 Unit tests are written using **TUnit** and **NSubstitute**.
