@@ -7,14 +7,12 @@ namespace Synology.Photos.Slideshow.Api.Slideshow.Providers;
 
 public sealed class SynologyApiInfoProvider : ISynologyApiInfoProvider
 {
-    private readonly ISynologyApiService _synoApiService;
-    private readonly ISynologyApiRequestBuilder _synoApiRequestBuilder;
+    private readonly ISynologyApiClient _synologyApiClient;
     private ApiInfoData? _apiInfoData;
 
-    public SynologyApiInfoProvider(ISynologyApiService synoApiService, ISynologyApiRequestBuilder synoApiRequestBuilder)
+    public SynologyApiInfoProvider(ISynologyApiClient synologyApiClient)
     {
-        _synoApiService = synoApiService;
-        _synoApiRequestBuilder = synoApiRequestBuilder;
+        _synologyApiClient = synologyApiClient;
     }
     
     public async Task<ApiInfoData> GetOrFetchInfo(CancellationToken cancellationToken)
@@ -25,8 +23,7 @@ public sealed class SynologyApiInfoProvider : ISynologyApiInfoProvider
         var apiInfoRequest = new ApiInfoRequest(
             method: SynologyApiMethods.Api.Info_Query,
             version: 1);
-        var apiInfoUrl = _synoApiRequestBuilder.BuildUrl(apiInfoRequest);
-        var apiInfoResponse = await _synoApiService.GetAsync<ApiInfoResponse>(apiInfoUrl, cancellationToken);
+        var apiInfoResponse = await _synologyApiClient.ApiInfoApi.QueryAsync(apiInfoRequest, cancellationToken);
             
         _apiInfoData = apiInfoResponse.Data;
 

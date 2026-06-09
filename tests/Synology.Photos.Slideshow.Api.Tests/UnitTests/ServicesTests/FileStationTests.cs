@@ -3,9 +3,9 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Synology.Api.Sdk.SynologyApi;
 using Synology.Api.Sdk.SynologyApi.ApiInfo.Response;
+using Synology.Api.Sdk.SynologyApi.FileStation;
 using Synology.Api.Sdk.SynologyApi.FileStation.Request;
 using Synology.Api.Sdk.SynologyApi.FileStation.Response;
-using Synology.Api.Sdk.SynologyApi.Shared.Request;
 using Synology.Api.Sdk.SynologyApi.Shared.Response;
 using Synology.Photos.Slideshow.Api.Configuration;
 using Synology.Photos.Slideshow.Api.Slideshow.Auth;
@@ -22,18 +22,19 @@ public class FileStationTests
 
     private sealed record TestHarness(
         FileStationService Service,
-        ISynologyApiService ApiService,
-        ISynologyApiRequestBuilder RequestBuilder,
+        ISynologyApiClient ApiClient,
         ISynologyAuthenticationContext AuthContext,
         IFileProcessor FileProcessor);
 
     private static TestHarness CreateHarness(int downloadMaxVersion = 2)
     {
         var apiInfoProvider = Substitute.For<ISynologyApiInfoProvider>();
-        var apiService = Substitute.For<ISynologyApiService>();
-        var requestBuilder = Substitute.For<ISynologyApiRequestBuilder>();
+        var apiClient = Substitute.For<ISynologyApiClient>();
+        var fileStationApi = Substitute.For<IFileStationClient>();
         var authContext = Substitute.For<ISynologyAuthenticationContext>();
         var fileProcessor = Substitute.For<IFileProcessor>();
+
+        apiClient.FileStationApi.Returns(fileStationApi);
 
         authContext.GetSynoToken().Returns(SynoToken);
 
@@ -43,11 +44,9 @@ public class FileStationTests
                 SynoFileStationDownload = new ApiInfoDetails { MaxVersion = downloadMaxVersion, MinVersion = 1 },
             });
 
-        requestBuilder.BuildUrl(Arg.Any<RequestBase>()).Returns("https://example/url");
-
         // HttpResponse == null causes DownloadHelpers.DownloadImageOrZipFromFileStationApi to return early
         // so the filesystem side effect never runs, keeping this a pure unit test.
-        apiService.GetRawResponseAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        fileStationApi.DownloadAsync(Arg.Any<FileStationDownloadRequest>(), Arg.Any<CancellationToken>())
             .Returns(new RawResponse
             {
                 Success = true,
@@ -63,14 +62,13 @@ public class FileStationTests
 
         var service = new FileStationService(
             apiInfoProvider,
-            apiService,
-            requestBuilder,
+            apiClient,
             authContext,
             options,
             fileProcessor,
             NullLogger<FileStationService>.Instance);
 
-        return new TestHarness(service, apiService, requestBuilder, authContext, fileProcessor);
+        return new TestHarness(service, apiClient, authContext, fileProcessor);
     }
 
     [Test]
@@ -90,7 +88,7 @@ public class FileStationTests
     }
 
     [Test]
-    public async Task Assert_Download_Builds_Url_From_FileStationDownloadRequest()
+    public async Task Assert_Download_Invokes_FileStationApi_For_Raw_Response()
     {
         var harness = CreateHarness();
         var items = new List<FileStationItem>
@@ -100,25 +98,9 @@ public class FileStationTests
 
         await harness.Service.Download(items, SynoToken, CancellationToken.None);
 
-        harness.RequestBuilder
+        await harness.ApiClient.FileStationApi
             .Received(1)
-            .BuildUrl(Arg.Any<FileStationDownloadRequest>());
-    }
-
-    [Test]
-    public async Task Assert_Download_Invokes_ApiService_For_Raw_Response()
-    {
-        var harness = CreateHarness();
-        var items = new List<FileStationItem>
-        {
-            new() { Name = "one.jpg", Path = "/photos/one.jpg" },
-        };
-
-        await harness.Service.Download(items, SynoToken, CancellationToken.None);
-
-        await harness.ApiService
-            .Received(1)
-            .GetRawResponseAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+            .DownloadAsync(Arg.Any<FileStationDownloadRequest>(), Arg.Any<CancellationToken>());
     }
 
     [Test]

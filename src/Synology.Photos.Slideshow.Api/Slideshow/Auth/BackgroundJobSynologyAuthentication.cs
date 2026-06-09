@@ -11,8 +11,7 @@ namespace Synology.Photos.Slideshow.Api.Slideshow.Auth;
 
 public sealed class BackgroundJobSynologyAuthentication : IBackgroundJobSynologyAuthentication
 {
-    private readonly ISynologyApiService _synoApiService;
-    private readonly ISynologyApiRequestBuilder _synoApiRequestBuilder;
+    private readonly ISynologyApiClient _synologyApiClient;
     private readonly ISynologyApiInfoProvider _apiInfoProvider;
     private readonly SynologyUser _user;
     private readonly ILogger<BackgroundJobSynologyAuthentication> _logger;
@@ -20,14 +19,12 @@ public sealed class BackgroundJobSynologyAuthentication : IBackgroundJobSynology
     private LoginResponse? _loginResponse;
 
     public BackgroundJobSynologyAuthentication(
-        ISynologyApiService synoApiService,
-        ISynologyApiRequestBuilder synoApiRequestBuilder,
+        ISynologyApiClient synologyApiClient,
         ISynologyApiInfoProvider apiInfoProvider,
         IOptions<SynologyUser> synologyUser,
         ILogger<BackgroundJobSynologyAuthentication> logger)
     {
-        _synoApiService = synoApiService;
-        _synoApiRequestBuilder = synoApiRequestBuilder;
+        _synologyApiClient = synologyApiClient;
         _apiInfoProvider = apiInfoProvider;
         _user = synologyUser.Value;
         _logger = logger;
@@ -41,11 +38,10 @@ public sealed class BackgroundJobSynologyAuthentication : IBackgroundJobSynology
             version: apiVersionInfo.SynoApiAuth.MaxVersion,
             account: _user.Account,
             password: _user.Password);
-        var loginUrl = _synoApiRequestBuilder.BuildUrl(loginRequest);
 
         _logger.LogDebug("Background job: authenticating with Synology API");
 
-        _loginResponse = await _synoApiService.GetAsync<LoginResponse>(loginUrl, cancellationToken);
+        _loginResponse = await _synologyApiClient.AuthApi.LoginAsync(loginRequest, cancellationToken);
 
         if (string.IsNullOrWhiteSpace(_loginResponse.Data.SynoToken))
             throw new SynologyAuthenticationException("Background job: SynoToken is null or empty");
@@ -65,10 +61,9 @@ public sealed class BackgroundJobSynologyAuthentication : IBackgroundJobSynology
                 method: SynologyApiMethods.Api.Auth_Logout,
                 version: apiVersionInfo.SynoApiAuth.MaxVersion,
                 sid: _loginResponse.Data.Sid);
-            var logoutUrl = _synoApiRequestBuilder.BuildUrl(logoutRequest);
 
             _logger.LogDebug("Background job: logging out from Synology API");
-            await _synoApiService.GetAsync<LogoutResponse>(logoutUrl, CancellationToken.None);
+            await _synologyApiClient.AuthApi.LogoutAsync(logoutRequest, CancellationToken.None);
         }
         catch (Exception ex)
         {

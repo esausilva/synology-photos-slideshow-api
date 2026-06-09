@@ -18,8 +18,7 @@ namespace Synology.Photos.Slideshow.Api.Slideshow.Services;
 public sealed partial class FileStation : IFileStation
 {
     private readonly ISynologyApiInfoProvider _apiInfoProvider;
-    private readonly ISynologyApiService _apiService;
-    private readonly ISynologyApiRequestBuilder _requestBuilder;
+    private readonly ISynologyApiClient _synologyApiClient;
     private readonly ISynologyAuthenticationContext _authContext;
     private readonly IOptionsMonitor<SynoApiOptions> _synoApiOptions;
     private readonly IFileProcessor _fileProcessor;
@@ -27,16 +26,14 @@ public sealed partial class FileStation : IFileStation
 
     public FileStation(
         ISynologyApiInfoProvider apiInfoProvider, 
-        ISynologyApiService apiService, 
-        ISynologyApiRequestBuilder requestBuilder,
+        ISynologyApiClient synologyApiClient, 
         ISynologyAuthenticationContext authContext,
         IOptionsMonitor<SynoApiOptions> synoApiOptions,
         IFileProcessor fileProcessor,
         ILogger<FileStation> logger)
     {
         _apiInfoProvider = apiInfoProvider ?? throw new ArgumentNullException(nameof(apiInfoProvider));
-        _apiService = apiService ?? throw new ArgumentNullException(nameof(apiService));
-        _requestBuilder = requestBuilder ?? throw new ArgumentNullException(nameof(requestBuilder));
+        _synologyApiClient = synologyApiClient ?? throw new ArgumentNullException(nameof(synologyApiClient));
         _authContext = authContext ?? throw new ArgumentNullException(nameof(authContext));
         _synoApiOptions = synoApiOptions ?? throw new ArgumentNullException(nameof(synoApiOptions));
         _fileProcessor = fileProcessor ?? throw new ArgumentNullException(nameof(fileProcessor));
@@ -123,8 +120,7 @@ public sealed partial class FileStation : IFileStation
             mode: "download",
             path: chunkList.Select(p => p.Path).ToList());
         
-        var downloadUrl = _requestBuilder.BuildUrl(downloadRequest);
-        var downloadResponse = await _apiService.GetRawResponseAsync(downloadUrl, cancellationToken);
+        var downloadResponse = await _synologyApiClient.FileStationApi.DownloadAsync(downloadRequest, cancellationToken);
 
         if (!downloadResponse.Success)
         {

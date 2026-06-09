@@ -16,8 +16,7 @@ namespace Synology.Photos.Slideshow.Api.Slideshow.Services;
 public sealed partial class NasPhotoSearchService : INasPhotoSearchService
 {
     private readonly ISynologyApiInfoProvider _apiInfoProvider;
-    private readonly ISynologyApiService _apiService;
-    private readonly ISynologyApiRequestBuilder _requestBuilder;
+    private readonly ISynologyApiClient _synologyApiClient;
     private readonly ISynologyAuthenticationContext _authContext;
     private readonly IOptionsMonitor<SynoApiOptions> _synoApiOptions;
     private readonly ILogger<NasPhotoSearchService> _logger;
@@ -36,15 +35,13 @@ public sealed partial class NasPhotoSearchService : INasPhotoSearchService
 
     public NasPhotoSearchService(
         ISynologyApiInfoProvider apiInfoProvider, 
-        ISynologyApiService apiService, 
-        ISynologyApiRequestBuilder requestBuilder,
+        ISynologyApiClient synologyApiClient, 
         ISynologyAuthenticationContext authContext,
         IOptionsMonitor<SynoApiOptions> synoApiOptions, 
         ILogger<NasPhotoSearchService> logger)
     {
         _apiInfoProvider = apiInfoProvider ?? throw new ArgumentNullException(nameof(apiInfoProvider));
-        _apiService = apiService ?? throw new ArgumentNullException(nameof(apiService));
-        _requestBuilder = requestBuilder ?? throw new ArgumentNullException(nameof(requestBuilder));
+        _synologyApiClient = synologyApiClient ?? throw new ArgumentNullException(nameof(synologyApiClient));
         _authContext = authContext ?? throw new ArgumentNullException(nameof(authContext));
         _synoApiOptions = synoApiOptions ?? throw new ArgumentNullException(nameof(synoApiOptions));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -158,8 +155,7 @@ public sealed partial class NasPhotoSearchService : INasPhotoSearchService
     private async Task<Result<string>> InitiateSearch(int apiVersion, CancellationToken cancellationToken)
     {
         var startRequest = CreateSearchStartRequest(apiVersion);
-        var searchUrl = _requestBuilder.BuildUrl(startRequest);
-        var searchStartResponse = await _apiService.GetAsync<FileStationSearchStartResponse>(searchUrl, cancellationToken);
+        var searchStartResponse = await _synologyApiClient.FileStationApi.SearchStartAsync(startRequest, cancellationToken);
 
         if (!string.IsNullOrEmpty(searchStartResponse?.Data?.TaskId))
             return Result.Ok(searchStartResponse.Data.TaskId);
@@ -188,8 +184,7 @@ public sealed partial class NasPhotoSearchService : INasPhotoSearchService
     private async Task<Result<int>> GetTotalPhotosCount(string taskId, int apiVersion, CancellationToken cancellationToken)
     {
         var listRequest = CreateSearchListRequest(taskId, apiVersion, offset: 0);
-        var searchUrl = _requestBuilder.BuildUrl(listRequest);
-        var searchListResponse = await _apiService.GetAsync<FileStationSearchListResponse>(searchUrl, cancellationToken);
+        var searchListResponse = await _synologyApiClient.FileStationApi.SearchListAsync(listRequest, cancellationToken);
         
         const int maxRetryAttempts = 10;
         var retryCount = 0;
@@ -200,7 +195,7 @@ public sealed partial class NasPhotoSearchService : INasPhotoSearchService
 
             await Task.Delay(SearchPollingDelayMs, cancellationToken);
             
-            searchListResponse = await _apiService.GetAsync<FileStationSearchListResponse>(searchUrl, cancellationToken);
+            searchListResponse = await _synologyApiClient.FileStationApi.SearchListAsync(listRequest, cancellationToken);
             retryCount++;
         }
         
@@ -317,8 +312,7 @@ public sealed partial class NasPhotoSearchService : INasPhotoSearchService
         var randomOffset = _random.Next(totalPhotosCount);
         
         var listRequest = CreateSearchListRequest(taskId, apiVersion, offset: randomOffset);
-        var searchUrl = _requestBuilder.BuildUrl(listRequest);
-        var searchListResponse = await _apiService.GetAsync<FileStationSearchListResponse>(searchUrl, cancellationToken);
+        var searchListResponse = await _synologyApiClient.FileStationApi.SearchListAsync(listRequest, cancellationToken);
 
         if (searchListResponse?.Data?.Files is [var firstFile, ..])
             return firstFile;
@@ -353,9 +347,8 @@ public sealed partial class NasPhotoSearchService : INasPhotoSearchService
             synoToken: _synoToken!,
             taskId: taskId
         );
-        var searchUrl = _requestBuilder.BuildUrl(cleanRequest);
         
-        await _apiService.GetAsync<FileStationSearchCleanResponse>(searchUrl, cancellationToken);
+        await _synologyApiClient.FileStationApi.SearchCleanAsync(cleanRequest, cancellationToken);
         
         _logger.LogDebug("Cleaned up search task");
     }

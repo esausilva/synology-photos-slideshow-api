@@ -11,23 +11,20 @@ namespace Synology.Photos.Slideshow.Api.Middleware;
 public sealed class SynologyAuthenticationMiddleware
 {
     private readonly RequestDelegate _next;
-    private readonly ISynologyApiService _synoApiService;
-    private readonly ISynologyApiRequestBuilder _synoApiRequestBuilder;
+    private readonly ISynologyApiClient _synologyApiClient;
     private readonly ISynologyApiInfoProvider _apiInfoProvider;
     private readonly SynologyUser _user;
     private readonly ILogger<SynologyAuthenticationMiddleware> _logger;
 
     public SynologyAuthenticationMiddleware(
         RequestDelegate next,
-        ISynologyApiService synoApiService,
-        ISynologyApiRequestBuilder synoApiRequestBuilder,
+        ISynologyApiClient synologyApiClient,
         ISynologyApiInfoProvider apiInfoProvider,
         IOptions<SynologyUser> synologyUser,
         ILogger<SynologyAuthenticationMiddleware> logger)
     {
         _next = next;
-        _synoApiService = synoApiService;
-        _synoApiRequestBuilder = synoApiRequestBuilder;
+        _synologyApiClient = synologyApiClient;
         _apiInfoProvider = apiInfoProvider;
         _user = synologyUser.Value;
         _logger = logger;
@@ -73,11 +70,10 @@ public sealed class SynologyAuthenticationMiddleware
                 version: apiVersionInfo.SynoApiAuth.MaxVersion,
                 account: _user.Account,
                 password: _user.Password);
-            var loginUrl = _synoApiRequestBuilder.BuildUrl(loginRequest);
         
             _logger.LogDebug("Authenticating with Synology API");
             
-            var loginResponse = await _synoApiService.GetAsync<LoginResponse>(loginUrl, cancellationToken);
+            var loginResponse = await _synologyApiClient.AuthApi.LoginAsync(loginRequest, cancellationToken);
             
             return string.IsNullOrWhiteSpace(loginResponse.Data.SynoToken) 
                 ? throw new SynologyAuthenticationException("SynoToken is null or empty") 
@@ -99,10 +95,9 @@ public sealed class SynologyAuthenticationMiddleware
                 method: SynologyApiMethods.Api.Auth_Logout,
                 version: apiVersionInfo.SynoApiAuth.MaxVersion,
                 sid: loginResponse.Data.Sid);
-            var logoutUrl = _synoApiRequestBuilder.BuildUrl(logoutRequest);
             
             _logger.LogDebug("Logging out from Synology API");
-            await _synoApiService.GetAsync<LogoutResponse>(logoutUrl, cancellationToken);
+            await _synologyApiClient.AuthApi.LogoutAsync(logoutRequest, cancellationToken);
         }
         catch (Exception e)
         {

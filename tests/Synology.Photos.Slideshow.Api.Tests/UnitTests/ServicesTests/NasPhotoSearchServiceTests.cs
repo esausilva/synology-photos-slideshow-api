@@ -3,8 +3,9 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Synology.Api.Sdk.SynologyApi;
 using Synology.Api.Sdk.SynologyApi.ApiInfo.Response;
+using Synology.Api.Sdk.SynologyApi.FileStation;
+using Synology.Api.Sdk.SynologyApi.FileStation.Request;
 using Synology.Api.Sdk.SynologyApi.FileStation.Response;
-using Synology.Api.Sdk.SynologyApi.Shared.Request;
 using Synology.Photos.Slideshow.Api.Configuration;
 using Synology.Photos.Slideshow.Api.Slideshow.Auth;
 using Synology.Photos.Slideshow.Api.Slideshow.Providers;
@@ -20,16 +21,17 @@ public class NasPhotoSearchServiceTests
     private sealed record TestHarness(
         NasPhotoSearchService Service,
         ISynologyApiInfoProvider ApiInfoProvider,
-        ISynologyApiService ApiService,
-        ISynologyApiRequestBuilder RequestBuilder,
+        ISynologyApiClient ApiClient,
         ISynologyAuthenticationContext AuthContext);
 
     private static TestHarness CreateHarness(int photoDownloadCount = 1, int maxVersion = 2)
     {
         var apiInfoProvider = Substitute.For<ISynologyApiInfoProvider>();
-        var apiService = Substitute.For<ISynologyApiService>();
-        var requestBuilder = Substitute.For<ISynologyApiRequestBuilder>();
+        var apiClient = Substitute.For<ISynologyApiClient>();
+        var fileStationApi = Substitute.For<IFileStationClient>();
         var authContext = Substitute.For<ISynologyAuthenticationContext>();
+
+        apiClient.FileStationApi.Returns(fileStationApi);
 
         authContext.GetSynoToken().Returns(SynoToken);
 
@@ -38,8 +40,6 @@ public class NasPhotoSearchServiceTests
             {
                 SynoFileStationSearch = new ApiInfoDetails { MaxVersion = maxVersion, MinVersion = 1 },
             });
-
-        requestBuilder.BuildUrl(Arg.Any<RequestBase>()).Returns("https://example/url");
 
         var options = new OptionsMonitorStub<SynoApiOptions>(new SynoApiOptions
         {
@@ -52,13 +52,12 @@ public class NasPhotoSearchServiceTests
 
         var service = new NasPhotoSearchService(
             apiInfoProvider,
-            apiService,
-            requestBuilder,
+            apiClient,
             authContext,
             options,
             NullLogger<NasPhotoSearchService>.Instance);
 
-        return new TestHarness(service, apiInfoProvider, apiService, requestBuilder, authContext);
+        return new TestHarness(service, apiInfoProvider, apiClient, authContext);
     }
 
     private static FileStationSearchStartResponse StartResponse(string taskId)
@@ -96,9 +95,9 @@ public class NasPhotoSearchServiceTests
             .That(result.IsFailed)
             .IsTrue();
 
-        await harness.ApiService
+        await harness.ApiClient.FileStationApi
             .DidNotReceive()
-            .GetAsync<FileStationSearchStartResponse>(Arg.Any<string>(), Arg.Any<CancellationToken>());
+            .SearchStartAsync(Arg.Any<FileStationSearchRequest>(), Arg.Any<CancellationToken>());
     }
 
     [Test]
@@ -106,8 +105,8 @@ public class NasPhotoSearchServiceTests
     {
         var harness = CreateHarness();
 
-        harness.ApiService
-            .GetAsync<FileStationSearchStartResponse>(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        harness.ApiClient.FileStationApi
+            .SearchStartAsync(Arg.Any<FileStationSearchRequest>(), Arg.Any<CancellationToken>())
             .Returns(StartResponse(taskId: string.Empty));
 
         var result = await harness.Service.SearchPhotos(SynoToken, CancellationToken.None);
@@ -122,12 +121,12 @@ public class NasPhotoSearchServiceTests
     {
         var harness = CreateHarness(photoDownloadCount: 2);
 
-        harness.ApiService
-            .GetAsync<FileStationSearchStartResponse>(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        harness.ApiClient.FileStationApi
+            .SearchStartAsync(Arg.Any<FileStationSearchRequest>(), Arg.Any<CancellationToken>())
             .Returns(StartResponse("task-1"));
 
-        harness.ApiService
-            .GetAsync<FileStationSearchListResponse>(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        harness.ApiClient.FileStationApi
+            .SearchListAsync(Arg.Any<FileStationSearchRequest>(), Arg.Any<CancellationToken>())
             .Returns(
                 ListResponse(total: 2, finished: true),
                 ListResponse(total: 2, finished: true,
@@ -155,12 +154,12 @@ public class NasPhotoSearchServiceTests
     {
         var harness = CreateHarness(photoDownloadCount: 1);
 
-        harness.ApiService
-            .GetAsync<FileStationSearchStartResponse>(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        harness.ApiClient.FileStationApi
+            .SearchStartAsync(Arg.Any<FileStationSearchRequest>(), Arg.Any<CancellationToken>())
             .Returns(StartResponse("task-video"));
 
-        harness.ApiService
-            .GetAsync<FileStationSearchListResponse>(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        harness.ApiClient.FileStationApi
+            .SearchListAsync(Arg.Any<FileStationSearchRequest>(), Arg.Any<CancellationToken>())
             .Returns(
                 ListResponse(total: 5, finished: true),
                 ListResponse(total: 5, finished: true,
@@ -188,12 +187,12 @@ public class NasPhotoSearchServiceTests
     {
         var harness = CreateHarness();
 
-        harness.ApiService
-            .GetAsync<FileStationSearchStartResponse>(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        harness.ApiClient.FileStationApi
+            .SearchStartAsync(Arg.Any<FileStationSearchRequest>(), Arg.Any<CancellationToken>())
             .Returns(StartResponse("task-empty"));
 
-        harness.ApiService
-            .GetAsync<FileStationSearchListResponse>(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        harness.ApiClient.FileStationApi
+            .SearchListAsync(Arg.Any<FileStationSearchRequest>(), Arg.Any<CancellationToken>())
             .Returns(ListResponse(total: 0, finished: true));
 
         var result = await harness.Service.SearchPhotos(SynoToken, CancellationToken.None);
@@ -212,12 +211,12 @@ public class NasPhotoSearchServiceTests
     {
         var harness = CreateHarness();
 
-        harness.ApiService
-            .GetAsync<FileStationSearchStartResponse>(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        harness.ApiClient.FileStationApi
+            .SearchStartAsync(Arg.Any<FileStationSearchRequest>(), Arg.Any<CancellationToken>())
             .Returns(StartResponse("task-auth"));
 
-        harness.ApiService
-            .GetAsync<FileStationSearchListResponse>(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        harness.ApiClient.FileStationApi
+            .SearchListAsync(Arg.Any<FileStationSearchRequest>(), Arg.Any<CancellationToken>())
             .Returns(
                 ListResponse(total: 1, finished: true),
                 ListResponse(total: 1, finished: true,
