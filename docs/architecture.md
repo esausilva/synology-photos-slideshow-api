@@ -60,6 +60,8 @@ sequenceDiagram
     participant FS as Local File System
     participant Ch as PhotoProcessingChannel
     participant Worker as PhotoProcessingWorker
+    participant ThumbCh as PhotoThumbnailProcessingChannel
+    participant ThumbWorker as ThumbnailProcessingWorker
     participant Sig as SignalR Hub
 
     Client->>EP: GET /photos/download
@@ -76,7 +78,13 @@ sequenceDiagram
     Worker->>FS: Convert Photos to WebP (IPhotosService)
     Worker->>Sig: Invoke RefreshSlideshow
     Sig-->>Client: RefreshSlideshow
-    Worker->>FS: Trigger Thumbnail Generation
+    Worker->>ThumbCh: Publish Thumbnail Request
+    
+    Note over ThumbWorker: Background Execution
+    ThumbWorker->>ThumbCh: Read Message
+    ThumbWorker->>FS: Generate Thumbnails (IPhotosService)
+    ThumbWorker->>Sig: Invoke RefreshGallery
+    Sig-->>Client: RefreshGallery
 ```
 
 ### 2. Get Photo Slides (`GET /photos/slides`)
