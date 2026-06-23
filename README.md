@@ -68,7 +68,8 @@ graph TD
     API -->|Return 204| Client
 
     FavWorker -->|Monitor| FS
-    FavWorker -->|Convert & Notify| SignalR
+    FavWorker -->|Convert & Thumbnail| FS
+    FavWorker -->|Notify| SignalR
 
     PhotoWorker -->|Read| PhotoChannel
     PhotoWorker -->|Convert WebP| FS

@@ -19,6 +19,7 @@ graph TD
         ThumbChannel[Thumbnail Processing Channel]
         PhotoWorker[Photo Processing Worker]
         ThumbWorker[Thumbnail Processing Worker]
+        FavWorker[Favorites Folder Watcher]
         Hangfire[Hangfire Scheduled Job]
     end
 
@@ -30,6 +31,10 @@ graph TD
     EP -->|Extract & Flatten| FS
     EP -->|Publish| PhotoChannel
     EP -->|Return 204/Metadata| Client
+
+    FavWorker -->|Monitor| FS
+    FavWorker -->|Convert & Thumbnail| FS
+    FavWorker -->|Notify| SignalR
 
     PhotoWorker -->|Read| PhotoChannel
     PhotoWorker -->|Convert WebP| FS
@@ -172,4 +177,33 @@ sequenceDiagram
     Job->>FS: Convert to WebP
     Job->>Sig: Invoke RefreshSlideshow
     Job->>Ch: Publish Thumbnail Request
+```
+
+### 6. Favorites Folder Watcher
+
+Monitors the `favorites/` subfolder, debounces file changes, and converts manually added photos & generates thumbnails.
+
+```mermaid
+sequenceDiagram
+    participant User as User (DSM/SMB/DS File)
+    participant FS as Local File System
+    participant Worker as FavoritesFolderWatcherWorker
+    participant Chan as SignalChannel (Internal)
+    participant Svc as PhotosService
+    participant Sig as SignalR Hub
+    participant Client as Slideshow Client
+
+    User->>FS: Add/Upload image to favorites/ folder
+    Note over Worker: FileSystemWatcher detects file
+    Worker->>Chan: Write Signal
+    
+    Note over Worker: Consumer Loop (Background)
+    Worker->>Chan: Read Signal
+    Worker->>Worker: Debounce Delay (Wait for silence)
+    Worker->>Svc: ProcessPhotos(favoritesPath)
+    Svc->>FS: Convert Photos to WebP
+    Worker->>Svc: CreateThumbnails(favoritesPath)
+    Svc->>FS: Generate Thumbnails
+    Worker->>Sig: Invoke RefreshSlideshow
+    Sig-->>Client: RefreshSlideshow
 ```
