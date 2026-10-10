@@ -1,4 +1,5 @@
 using Synology.Photos.Slideshow.Api.Slideshow.Endpoints;
+using Synology.Photos.Slideshow.Api.Slideshow.Endpoints.Response;
 using Synology.Photos.Slideshow.Api.Slideshow.Hubs;
 
 namespace Synology.Photos.Slideshow.Api.Extensions;
@@ -41,6 +42,13 @@ public static class ConfigureEndpointsExtensions
                 .ProducesValidationProblem()
                 .Produces<IList<string>>()
                 .Produces<IList<string>>(StatusCodes.Status404NotFound)
+                .Produces(StatusCodes.Status500InternalServerError);
+
+            group.MapPost("favorite", ToggleFavorite.PostAsync)
+                .WithName("ToggleFavorite")
+                .ProducesValidationProblem()
+                .Produces<ToggleFavoriteResponse>()
+                .Produces(StatusCodes.Status404NotFound)
                 .Produces(StatusCodes.Status500InternalServerError);
             
             return group;

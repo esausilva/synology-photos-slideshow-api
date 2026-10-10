@@ -5,4 +5,5 @@ public interface IFileProcessor
     Task CleanDownloadDirectory(CancellationToken cancellationToken);
     Task ProcessZipFile(CancellationToken cancellationToken);
     Task DeletePhotos(IList<string> photosToDelete, CancellationToken cancellationToken);
+    Task<string?> ToggleFavorite(string photoName, bool isFavorite, CancellationToken cancellationToken);
 }

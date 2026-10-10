@@ -71,6 +71,8 @@ graph TD
         PhotoWorker[Photo Processing Worker]
         ThumbWorker[Thumbnail Processing Worker]
         FavWorker[Favorites Folder Watcher]
+        FavRefreshChannel[Favorites Refresh Signal Channel]
+        FavRefreshWorker[Favorites Refresh Worker]
         Hangfire[Hangfire Scheduled Job]
     end
 
@@ -78,10 +80,15 @@ graph TD
     API -->|Search & Download| NAS
     API -->|Extract| FS
     API -->|Publish| PhotoChannel
+    API -->|Move Favorites| FS
+    API -->|Publish| FavRefreshChannel
     API -->|Return 204| Client
 
     FavWorker -->|Monitor| FS
     FavWorker -->|Convert & Notify| SignalR
+
+    FavRefreshWorker -->|Read| FavRefreshChannel
+    FavRefreshWorker -->|Notify| SignalR
 
     PhotoWorker -->|Read| PhotoChannel
     PhotoWorker -->|Convert WebP| FS
@@ -104,11 +111,11 @@ Photo download is async: endpoint queues work into a `System.Threading.Channels`
 
 ### Key Directories (under `src/Synology.Photos.Slideshow.Api/`)
 
-- **Slideshow/Endpoints/** — Minimal API endpoint handlers (`GetSlides`, `DownloadPhotos`, `DeletePhotos`, `Thumbnails`)
+- **Slideshow/Endpoints/** — Minimal API endpoint handlers (`GetSlides`, `DownloadPhotos`, `DeletePhotos`, `Thumbnails`, `ToggleFavorite`)
 - **Slideshow/Services/** — Core business logic: NAS search, file download/extraction, WebP conversion, EXIF metadata, geolocation
-- **Slideshow/BackgroundServices/** — Channel consumers (`PhotoProcessingWorker`, `ThumbnailProcessingWorker`) and directory monitors (`FavoritesFolderWatcherWorker`) with Polly retry
+- **Slideshow/BackgroundServices/** — Channel consumers (`PhotoProcessingWorker`, `ThumbnailProcessingWorker`, `FavoritesRefreshWorker`) and directory monitors (`FavoritesFolderWatcherWorker`) with Polly retry. `FavoritesRefreshWorker` debounces favorite toggle signals and sends `RefreshSlideshow`/`RefreshGallery`
 - **Slideshow/Jobs/** — Hangfire scheduled job (`PhotoDownloadJob`) for weekly auto-downloads
-- **Slideshow/Messaging/** — Channel abstractions (`IPhotoProcessingChannel`, `IPhotoThumbnailProcessingChannel`)
+- **Slideshow/Messaging/** — Channel abstractions (`IPhotoProcessingChannel`, `IPhotoThumbnailProcessingChannel`, `IFavoritesRefreshSignalChannel`)
 - **Slideshow/Auth/** — Two auth patterns: `ISynologyAuthenticationContext` (scoped, from HTTP context) and `IBackgroundJobSynologyAuthentication` (transient, re-authenticates for background jobs)
 - **Extensions/** — Service registration (`ConfigurationExtensions`), route mapping (`ConfigureEndpointsExtensions`), Hangfire setup
 - **Configuration/** — Options classes bound from `appsettings.json` sections
@@ -138,6 +145,7 @@ Photo download is async: endpoint queues work into a `System.Threading.Channels`
 | GET | `/photos/slides` | Get photo metadata with URLs, dates, locations |
 | GET | `/photos/thumbnails` | Get thumbnail relative URLs |
 | POST | `/photos/bulk-delete` | Delete photos by name |
+| POST | `/photos/favorite` | Move a photo in or out of the favorites folder |
 | GET | `/jobs` | Hangfire dashboard |
 
 ### Storage

@@ -232,4 +232,100 @@ public class FileProcessorTests
             .That(() => processor.ProcessZipFile(CancellationToken.None))
             .ThrowsNothing();
     }
+
+    [Test]
+    public async Task Assert_ToggleFavorite_Moves_Photo_And_Thumbnail_Into_Favorites()
+    {
+        using var temp = new TempDirectory();
+        temp.WriteFile("IMG_1.webp", "photo");
+        temp.WriteFile("IMG_1__thumb.webp", "thumb");
+
+        var processor = CreateProcessor(temp.Path);
+
+        var result = await processor.ToggleFavorite("IMG_1__thumb.webp", isFavorite: true, CancellationToken.None);
+
+        await Assert.That(result).IsEqualTo("IMG_1.webp");
+        await Assert.That(File.Exists(Path.Combine(temp.Path, "favorites", "IMG_1.webp"))).IsTrue();
+        await Assert.That(File.Exists(Path.Combine(temp.Path, "favorites", "IMG_1__thumb.webp"))).IsTrue();
+        await Assert.That(File.Exists(Path.Combine(temp.Path, "IMG_1.webp"))).IsFalse();
+        await Assert.That(File.Exists(Path.Combine(temp.Path, "IMG_1__thumb.webp"))).IsFalse();
+    }
+
+    [Test]
+    public async Task Assert_ToggleFavorite_Moves_Photo_And_Thumbnail_Out_Of_Favorites()
+    {
+        using var temp = new TempDirectory();
+        temp.WriteFile(Path.Combine("favorites", "IMG_1.webp"), "photo");
+        temp.WriteFile(Path.Combine("favorites", "IMG_1__thumb.webp"), "thumb");
+
+        var processor = CreateProcessor(temp.Path);
+
+        var result = await processor.ToggleFavorite("IMG_1.webp", isFavorite: false, CancellationToken.None);
+
+        await Assert.That(result).IsEqualTo("IMG_1.webp");
+        await Assert.That(File.Exists(Path.Combine(temp.Path, "IMG_1.webp"))).IsTrue();
+        await Assert.That(File.Exists(Path.Combine(temp.Path, "IMG_1__thumb.webp"))).IsTrue();
+        await Assert.That(File.Exists(Path.Combine(temp.Path, "favorites", "IMG_1.webp"))).IsFalse();
+    }
+
+    [Test]
+    public async Task Assert_ToggleFavorite_Appends_Suffix_To_Photo_And_Thumbnail_On_Collision()
+    {
+        using var temp = new TempDirectory();
+        temp.WriteFile("IMG_1.webp", "new photo");
+        temp.WriteFile("IMG_1__thumb.webp", "new thumb");
+        temp.WriteFile(Path.Combine("favorites", "IMG_1.webp"), "existing photo");
+        temp.WriteFile(Path.Combine("favorites", "IMG_1__thumb.webp"), "existing thumb");
+
+        var processor = CreateProcessor(temp.Path);
+
+        var result = await processor.ToggleFavorite("IMG_1.webp", isFavorite: true, CancellationToken.None);
+
+        await Assert.That(result).IsEqualTo("IMG_1-2.webp");
+        await Assert.That(File.ReadAllText(Path.Combine(temp.Path, "favorites", "IMG_1-2.webp"))).IsEqualTo("new photo");
+        await Assert.That(File.ReadAllText(Path.Combine(temp.Path, "favorites", "IMG_1-2__thumb.webp"))).IsEqualTo("new thumb");
+        await Assert.That(File.ReadAllText(Path.Combine(temp.Path, "favorites", "IMG_1.webp"))).IsEqualTo("existing photo");
+    }
+
+    [Test]
+    public async Task Assert_ToggleFavorite_Appends_Suffix_When_Only_Thumbnail_Collides()
+    {
+        using var temp = new TempDirectory();
+        temp.WriteFile("IMG_1.webp", "photo");
+        temp.WriteFile(Path.Combine("favorites", "IMG_1__thumb.webp"), "orphan thumb");
+
+        var processor = CreateProcessor(temp.Path);
+
+        var result = await processor.ToggleFavorite("IMG_1.webp", isFavorite: true, CancellationToken.None);
+
+        await Assert.That(result).IsEqualTo("IMG_1-2.webp");
+    }
+
+    [Test]
+    public async Task Assert_ToggleFavorite_Does_Not_Rename_When_Photo_Already_At_Destination()
+    {
+        using var temp = new TempDirectory();
+        temp.WriteFile("IMG_1.webp", "photo");
+        temp.WriteFile("IMG_1__thumb.webp", "thumb");
+
+        var processor = CreateProcessor(temp.Path);
+
+        var result = await processor.ToggleFavorite("IMG_1.webp", isFavorite: false, CancellationToken.None);
+
+        await Assert.That(result).IsEqualTo("IMG_1.webp");
+        await Assert.That(File.Exists(Path.Combine(temp.Path, "IMG_1.webp"))).IsTrue();
+        await Assert.That(File.Exists(Path.Combine(temp.Path, "IMG_1-2.webp"))).IsFalse();
+    }
+
+    [Test]
+    public async Task Assert_ToggleFavorite_Returns_Null_When_Photo_Not_Found()
+    {
+        using var temp = new TempDirectory();
+
+        var processor = CreateProcessor(temp.Path);
+
+        var result = await processor.ToggleFavorite("missing.webp", isFavorite: true, CancellationToken.None);
+
+        await Assert.That(result).IsNull();
+    }
 }

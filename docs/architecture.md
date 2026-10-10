@@ -20,6 +20,8 @@ graph TD
         PhotoWorker[Photo Processing Worker]
         ThumbWorker[Thumbnail Processing Worker]
         FavWorker[Favorites Folder Watcher]
+        FavRefreshChannel[Favorites Refresh Signal Channel]
+        FavRefreshWorker[Favorites Refresh Worker]
         Hangfire[Hangfire Scheduled Job]
     end
 
@@ -30,11 +32,16 @@ graph TD
     EP -->|Search & Download Zip| NAS
     EP -->|Extract & Flatten| FS
     EP -->|Publish| PhotoChannel
+    EP -->|Move Favorites| FS
+    EP -->|Publish| FavRefreshChannel
     EP -->|Return 204/Metadata| Client
 
     FavWorker -->|Monitor| FS
     FavWorker -->|Convert & Thumbnail| FS
     FavWorker -->|Notify| SignalR
+
+    FavRefreshWorker -->|Read| FavRefreshChannel
+    FavRefreshWorker -->|Notify| SignalR
 
     PhotoWorker -->|Read| PhotoChannel
     PhotoWorker -->|Convert WebP| FS
@@ -206,4 +213,34 @@ sequenceDiagram
     Svc->>FS: Generate Thumbnails
     Worker->>Sig: Invoke RefreshSlideshow
     Sig-->>Client: RefreshSlideshow
+```
+
+### 7. Toggle Favorite (`POST /photos/favorite`)
+
+Moves a photo and its thumbnail into or out of the `favorites/` subfolder. Refresh notifications are debounced so consecutive toggles send a single refresh.
+
+```mermaid
+sequenceDiagram
+    participant Client as Gallery Client
+    participant EP as ToggleFavorite Endpoint
+    participant FP as FileProcessor
+    participant FS as Local File System
+    participant Chan as FavoritesRefreshSignalChannel
+    participant Worker as FavoritesRefreshWorker
+    participant Sig as SignalR Hub
+    participant Others as Other Clients
+
+    Client->>EP: POST /photos/favorite (FileName, IsFavorite, SignalRConnectionId)
+    EP->>EP: Validate request
+    EP->>FP: ToggleFavorite()
+    FP->>FS: Move photo & thumbnail (append -2, -3, ... on collision)
+    FP-->>EP: Final file name
+    EP->>Chan: Publish(SignalRConnectionId)
+    EP-->>Client: 200 OK (FileName)
+
+    Note over Worker: Consumer Loop (Background)
+    Worker->>Chan: Read signals
+    Worker->>Worker: Debounce Delay (each new signal resets the timer)
+    Worker->>Sig: Invoke RefreshSlideshow & RefreshGallery (excluding the single sender)
+    Sig-->>Others: RefreshSlideshow, RefreshGallery
 ```

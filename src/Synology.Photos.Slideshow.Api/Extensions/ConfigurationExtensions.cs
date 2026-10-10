@@ -44,6 +44,7 @@ public static class ConfigurationExtensions
             services.AddSingleton<ISynologyApiInfoProvider, SynologyApiInfoProvider>();
             services.AddSingleton<IPhotoProcessingChannel, PhotoProcessingChannel>();
             services.AddSingleton<IPhotoThumbnailProcessingChannel, PhotoThumbnailProcessingChannel>();
+            services.AddSingleton<IFavoritesRefreshSignalChannel, FavoritesRefreshSignalChannel>();
             services.AddTransient<INasPhotoSearchService, NasPhotoSearchService>();
             services.AddTransient<IFileStation, FileStation>();
             services.AddTransient<IFileProcessor, FileProcessor>();
@@ -53,6 +54,7 @@ public static class ConfigurationExtensions
             services.AddHostedService<PhotoProcessingWorker>();
             services.AddHostedService<ThumbnailProcessingWorker>();
             services.AddHostedService<FavoritesFolderWatcherWorker>();
+            services.AddHostedService<FavoritesRefreshWorker>();
             
             return services;
         }

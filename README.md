@@ -22,6 +22,7 @@ The API is intended to run on your Synology NAS and be accessed only from your l
     - [Get Photo Slides](#get-photo-slides)
     - [Get Thumbnails](#get-thumbnails)
     - [Bulk Delete Photos](#bulk-delete-photos)
+    - [Toggle Favorite](#toggle-favorite)
   - [Real-time Updates](#real-time-updates)
     - [Hub Endpoint](#hub-endpoint)
     - [Client Methods](#client-methods)
@@ -58,6 +59,8 @@ graph TD
         PhotoWorker[Photo Processing Worker]
         ThumbWorker[Thumbnail Processing Worker]
         FavWorker[Favorites Folder Watcher]
+        FavRefreshChannel[Favorites Refresh Signal Channel]
+        FavRefreshWorker[Favorites Refresh Worker]
         Hangfire[Hangfire Scheduled Job]
     end
 
@@ -65,11 +68,16 @@ graph TD
     API -->|Search & Download| NAS
     API -->|Extract| FS
     API -->|Publish| PhotoChannel
+    API -->|Move Favorites| FS
+    API -->|Publish| FavRefreshChannel
     API -->|Return 204| Client
 
     FavWorker -->|Monitor| FS
     FavWorker -->|Convert & Thumbnail| FS
     FavWorker -->|Notify| SignalR
+
+    FavRefreshWorker -->|Read| FavRefreshChannel
+    FavRefreshWorker -->|Notify| SignalR
 
     PhotoWorker -->|Read| PhotoChannel
     PhotoWorker -->|Convert WebP| FS
@@ -96,6 +104,7 @@ The API exposes the following endpoints:
 - Get Photo Slides
 - Get Thumbnails
 - Bulk Delete Photos
+- Toggle Favorite
 
 ### Download Photos
 
@@ -290,6 +299,52 @@ An example of the success response:
 }
 ```
 
+### Toggle Favorite
+
+```text
+POST /photos/favorite
+```
+
+This endpoint moves a photo, together with its thumbnail, into or out of the protected `favorites` folder. Photos in the `favorites` folder are not removed by the automatic cleanup that runs when new random photos are downloaded.
+
+Accepts the photo name, whether the photo should become a favorite, and an optional SignalR connection ID to avoid sending a refresh signal to the requester.
+
+The request body is a JSON object:
+
+```json
+{
+  "fileName": "IMG_20170211_121449.webp",
+  "isFavorite": true,
+  "signalRConnectionId": "optional-connection-id"
+}
+```
+
+Behavior:
+- Validates the request using Fluent Validation. `FileName` is mandatory and must be a plain `.webp` file name (no paths or wildcards). The thumbnail name (`__thumb.webp`) is also accepted.
+- `isFavorite: true` moves the photo from the root of the slideshow folder into `favorites/`. `isFavorite: false` moves it from `favorites/` back to the root.
+- The photo and its `__thumb` thumbnail are always moved together.
+- If a photo or thumbnail with the same name already exists at the destination, a counter suffix is appended to both files, e.g. `IMG_20170211_121449-2.webp` and `IMG_20170211_121449-2__thumb.webp`.
+- If the photo is already in the destination folder, nothing is moved and the current name is returned.
+- Returns the final photo file name, which can differ from the requested one when a suffix was added.
+- Clients are notified with `RefreshSlideshow` and `RefreshGallery`. The notification is debounced using `FavoritesWatcherOptions.DebounceDelayInSeconds`, so consecutive toggles send a single refresh. The requester is excluded, unless more than one client toggled favorites during the debounce window.
+
+#### Response Codes
+
+| Status Code | Description                         |
+| :---------- |:------------------------------------|
+| `200`       | Success (with the final `fileName`) |
+| `400`       | Bad Request (Validation Errors)     |
+| `404`       | Photo not found                     |
+| `500`       | Unexpected errors (Problem Details) |
+
+An example of the success response:
+
+```json
+{
+  "fileName": "IMG_20170211_121449-2.webp"
+}
+```
+
 ## Real-time Updates
 
 The API uses SignalR to provide real-time updates to connected clients. 
@@ -305,9 +360,9 @@ The following methods are invoked on the client:
 
 | Method                      | Description                                                                 |
 |:----------------------------|:----------------------------------------------------------------------------|
-| `RefreshSlideshow`          | Triggered when photo processing is complete or when photos are deleted.     |
+| `RefreshSlideshow`          | Triggered when photo processing is complete, when photos are deleted, or when favorites are toggled. |
 | `PhotoProcessingError`      | Triggered if an error occurs during background photo processing.            |
-| `RefreshGallery`            | Triggered when thumbnail generation is complete.                            |
+| `RefreshGallery`            | Triggered when thumbnail generation is complete or when favorites are toggled. |
 | `ThumbnailsProcessingError` | Triggered if an error occurs during background thumbnail generation.        |
 
 ## Features
@@ -362,11 +417,13 @@ The API includes a **reactive background worker** that monitors a dedicated `fav
 3. Once activity stops, it automatically converts the photos to WebP, generates thumbnails, and notifies all SignalR clients to refresh the slideshow.
 4. Any files added while processing is already in progress are queued and processed sequentially.
 
+Photos can also be moved into or out of the `favorites` folder from the client's Gallery page using the star button on each thumbnail, which calls the [Toggle Favorite](#toggle-favorite) endpoint. The refresh notifications for those toggles use the same `DebounceDelayInSeconds` setting.
+
 #### Configuration Options:
 
 | Option                   | Type    | Description                                                                 | Default |
 |:-------------------------|:--------|:----------------------------------------------------------------------------|:--------|
-| `DebounceDelayInSeconds` | Integer | Seconds to wait for "silence" before starting processing after a file event. | `10`    |
+| `DebounceDelayInSeconds` | Integer | Seconds to wait for "silence" before starting processing after a file event, or before notifying clients after favorite toggles. | `10`    |
 
 Example configuration in `appsettings.json`:
 
@@ -447,7 +504,7 @@ Update the following app settings in `appsettings.json` or create a .NET User Se
 | `PhotoDownloadScheduledJobOptions.Hour`       | Hour of the day to run the job (24-hour format)                  | 0-23                                                                               |
 | `PhotoDownloadScheduledJobOptions.Minute`     | Minute of the hour to run the job                                | 0-59                                                                               |
 | `PhotoDownloadScheduledJobOptions.TimeZoneId` | IANA time zone ID used to schedule the job                       | e.g., `America/Chicago`, `America/New_York`                                        |
-| `FavoritesWatcherOptions.DebounceDelayInSeconds` | Seconds to wait before processing after a file change         | **10** (default)                                                                   |
+| `FavoritesWatcherOptions.DebounceDelayInSeconds` | Seconds to wait before processing after a file change, or before notifying clients after favorite toggles | **10** (default)                                                                   |
 | `ConnectionStrings.Redis`                   | Redis connection string                                          | e.g.,`localhost:6379,abortConnect=false,connectTimeout=10000`                      |
 
 Refer to [Endpoints](#endpoints) on how to call the API endpoints.
@@ -605,6 +662,7 @@ I would like to add the following features (in no particular order):
 | **Real-time Notifications** | Uses SignalR or SSE to notify the client when new photos are available. A predecessor to this is to have the background job feature completed.  | ✅     |
 | **Permanent Folder**        | A dedicated folder for specific photos (e.g., recent trips) that bypasses the auto-clean process.                                               | ✅     |
 | **Delete Endpoint**         | Allows removing specific photos from the slideshow cache without deleting the original NAS files.                                               | ✅     |
+| **Favorite Toggle**         | Moves photos in or out of the protected favorites folder from the client.                                                                       | ✅     |
 | **Metadata Refactoring**    | Updates endpoints to include photo date, location, and mapping data.                                                                            | ✅     |
 | **Blacklist System**        | An endpoint to permanently prevent specific photos from appearing in the slideshow.                                                             |        |
 | **Download Configuration**  | Enables the client application to define how many photos are fetched.                                                                           |        |
