@@ -67,7 +67,7 @@ One last configuration if you choose to store the cache data on your NAS, assign
 redis-server --appendonly yes
 ```
 
-Refer to [Deployment To Your Synology NAS Device](../README.md#deployment-to-your-synology-nas-device) for API environment variable configuration and more details.
+Refer to [Deployment To Your Synology NAS Device](deployment-to-your-synology-nas-device.md) for API environment variable configuration and more details.
 
 ## GUI client (optional)
 

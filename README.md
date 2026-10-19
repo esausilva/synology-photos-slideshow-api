@@ -32,7 +32,7 @@ The API is intended to run on your Synology NAS and be accessed only from your l
   - [Logging](#logging)
   - [Local Development](#local-development)
   - [Docker (Local)](#docker-local)
-  - [Deployment To Your Synology NAS Device](#deployment-to-your-synology-nas-device)
+  - [Deployment To Your Synology NAS Device](docs/deployment-to-your-synology-nas-device.md)
   - [Important !!!!!!!](#important)
   - [Future Enhancements](#future-enhancements)
   - [Client App](#client-app)
@@ -121,7 +121,7 @@ GET /photos/download
 
 This endpoint is asynchronous. It returns immediately after the photos are downloaded and the background processing is triggered. Clients can listen for real-time updates via [SignalR](#real-time-updates) to know when processing is complete.
 
-Refer to "[Local Development](#local-development)", "[Docker Local](#docker-local)", and "[Deployment](#deployment-to-your-synology-nas-device)" for more information on configuration.
+Refer to "[Local Development](#local-development)", "[Docker Local](#docker-local)", and "[Deployment](docs/deployment-to-your-synology-nas-device.md)" for more information on configuration.
 
 **Note:** There is an issue with the number of photos to download. It seems to be limited to 79; however, this number limit works for now. I will look into this later and try to figure this out.
 
@@ -580,71 +580,6 @@ docker-compose -f docker-compose.yaml -f docker-compose.local.yaml up -d
 ```
 
 **Note**: It would be a good idea to rename the image in both Docker compose files and remove my name from the image name.
-
-## Deployment To Your Synology NAS Device
-
-Two options:
-
-1. Download the latest image from my Docker Hub Repo: [esausilva/synology.photos.slideshow.api](https://hub.docker.com/r/esausilva/synology.photos.slideshow.api).
-2. Build the image yourself and push it to your own Docker Hub repository. Following this route, you will need to rename the image to match your repository in the `docker-compose.yml` file. 
-
-**For option 2:**
-
-Build and push to Docker Hub:
-
-```shell
-docker-compose build
-docker push [your-repo]/synology.photos.slideshow.api:latest
-```
-
-This will take the default docker compose file, `docker-compose.yaml`, and build the image, skipping the local docker compose file, `docker-compose.local.yml`.
-
-**For both options:**
-
-From Synology Container Manager, click on the "**Registry**" tab and search for the appropriate repository and image.
-
-Right-click on the image and select "Download this image".
-
-![Registry Search esausilva](./docs/registry-search-esausilva.jpg "Registry Search esausilva")
-
-Once the image is downloaded, you can create a container from it by going to the "**Image**" tab, then right-clicking on the image, and selecting "**Run**".
-
-![Synology Photos Slideshow API Docker Image](./docs/synology-photo-slideshow-api-docker-image.jpg "Synology Photos Slideshow API Docker Image")
-
-From there, you can configure the container. In the first screen you will need to set the container name, I would suggest checking-off the "**Enable auto-restart**" option.
-
-On the second screen, configure the local (to the NAS) ports. You can choose to use the default ports, or you can change them to whatever you want. Just be mindful that the API endpoint ports will need to match the ports you configure here.
-
-Setting up volumes is optional, but I find them useful to be able to access the downloaded photos and logs. You will need to create the folders at your desired location in the NAS with File Station, then map them to the container by clicking the "**Add Folder**" button under the "**Volume Settings**" heading.
-
-The volume maps in the container will  be `/app/slides` and `/app/logs`, make sure you assign Read/Write permissions to the volumes.
-
-Finally, you need to configure the environment variables under the "**Environment**" heading.
-
-The environment variables will be as follows:
-
-| **Environment Variable**                  | **Value**                                                  |
-| ----------------------------------------- | ---------------------------------------------------------- |
-| ASPNETCORE_URLS                           | http://+:5097                                              |
-| UriBase:ServerIpOrHostname                | [[SERVER_IP]]                                              |
-| UriBase:Port                              | 5000                                                       |
-| SynologyUser:Account                      | [[ACCOUNT]]                                                |
-| SynologyUser:Password                     | [[PASSWORD]]                                               |
-| SynoApiOptions:FileStationSearchFolders:0 | [[PATH_TO_PHOTOS_FOLDER_IN_NAS]]                           |
-| SynoApiOptions:NumberOfPhotoDownloads     | 79                                                         |
-| SynoApiOptions:DownloadAbsolutePath       | /app/slides                                                |
-| ThirdPartyServices:EnableGeolocation      | true                                                       |
-| ThirdPartyServices:EnableDistributedCache | true                                                       |
-| GoogleMapsOptions:ApiKey                  | [[GOOGLE_MAPS_API_KEY]]                                    |
-| PhotoDownloadScheduledJobOptions:Enabled    | true                                                       |
-| PhotoDownloadScheduledJobOptions:DayOfWeek  | 0                                                          |
-| PhotoDownloadScheduledJobOptions:Hour       | 12                                                         |
-| PhotoDownloadScheduledJobOptions:Minute     | 3                                                          |
-| PhotoDownloadScheduledJobOptions:TimeZoneId | America/Chicago                                            |
-| FavoritesWatcherOptions:DebounceDelayInSeconds | 10                                                    |
-| ConnectionStrings:Redis                   | [[SERVER_IP]]:6379,abortConnect=false,connectTimeout=10000 |
-
-Refer to [Photo Location](./docs/photo-location.md) and [Redis](./docs/redis.md) for geolocation and caching, including getting the Google Maps API.
 
 ## Important!!!!!!!
 

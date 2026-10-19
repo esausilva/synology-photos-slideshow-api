@@ -1,0 +1,63 @@
+name: synology-photos-slideshow
+
+services:
+  synology.photos.slideshow.api:
+    image: esausilva/synology.photos.slideshow.api:latest
+    container_name: Synology.Photos.Slideshow.Api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Release}
+      - ASPNETCORE_URLS=http://+:5097
+      - ASPNETCORE_HTTP_PORTS=5097
+      - DOTNET_GENERATE_ASPNET_CERTIFICATE=false
+      - UriBase:ServerIpOrHostname=${UriBase__ServerIpOrHostname}
+      - UriBase:Port=${UriBase__Port:-5000}
+      - SynologyUser:Account=${SynologyUser__Account}
+      - SynologyUser:Password=${SynologyUser__Password}
+      - SynoApiOptions:DownloadAbsolutePath=/app/slides
+      - SynoApiOptions:NumberOfPhotoDownloads=${SynoApiOptions__NumberOfPhotoDownloads:-10}
+      - SynoApiOptions:FileStationSearchFolders:0=${SynoApiOptions__FileStationSearchFolders__0}
+      - SynoApiOptions:FileStationSearchFolders:1=${SynoApiOptions__FileStationSearchFolders__1}
+      - ThirdPartyServices:EnableGeolocation=${ThirdPartyServices__EnableGeolocation:-false}
+      - ThirdPartyServices:EnableDistributedCache=${ThirdPartyServices__EnableDistributedCache:-false}
+      - GoogleMapsOptions:ApiKey=${GoogleMapsOptions__ApiKey:-}
+      - PhotoDownloadScheduledJobOptions:Enabled=${PhotoDownloadScheduledJobOptions__Enabled:-true}
+      - PhotoDownloadScheduledJobOptions:DayOfWeek=${PhotoDownloadScheduledJobOptions__DayOfWeek:-0}
+      - PhotoDownloadScheduledJobOptions:Hour=${PhotoDownloadScheduledJobOptions__Hour:-12}
+      - PhotoDownloadScheduledJobOptions:Minute=${PhotoDownloadScheduledJobOptions__Minute:-3}
+      - PhotoDownloadScheduledJobOptions:TimeZoneId=${PhotoDownloadScheduledJobOptions__TimeZoneId:-America/Chicago}
+      - FavoritesWatcherOptions:DebounceDelayInSeconds=${FavoritesWatcherOptions__DebounceDelayInSeconds:-10}
+      - ConnectionStrings:Redis=${ConnectionStrings__Redis:-redis.slideshow:6379,abortConnect=false,connectTimeout=10000}
+    volumes:
+      - ${SLIDES_VOLUME_PATH:-./.slides}:/app/slides:rw
+      - ${LOGS_VOLUME_PATH:-./.logs}:/app/logs:rw
+    ports:
+      - "5097:5097"
+      - "7078:7078"
+    depends_on:
+      redis.slideshow:
+        condition: service_healthy
+
+  redis.slideshow:
+    image: redis:8.6.0-alpine
+    container_name: Synology.Photos.Slideshow.Redis
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    volumes:
+      - ${REDIS_DATA_PATH:-./.redis-data}:/data:rw
+    ports:
+      - "6379:6379"
+
+  synology.photos.slideshow.client:
+    image: esausilva/synology.photos.slideshow.client:latest
+    container_name: Synology.Photos.Slideshow.Client
+    environment:
+      - SERVER__API_BASE_URL=${SERVER__API_BASE_URL:-http://synology.photos.slideshow.api:5097}
+      - CLIENT__API_BASE_URL=${CLIENT__API_BASE_URL:-http://localhost:5097}
+    ports:
+      - "3500:3000"
+    depends_on:
+      - synology.photos.slideshow.api
